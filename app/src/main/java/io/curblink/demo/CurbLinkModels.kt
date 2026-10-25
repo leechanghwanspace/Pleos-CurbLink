@@ -6,6 +6,33 @@ enum class PositioningMode { GPS_GEOFENCE, UWB_VERIFIED_ZONE, MANUAL_BAY_NUMBER 
 enum class OrderState { DRAFT, PAID, READY, OPEN_REQUESTED, OPEN, COMPLETE }
 enum class Tailgate { CLOSED, OPEN, UNKNOWN }
 
+enum class AssistanceResponse { PENDING, ACCEPTED, DECLINED }
+data class ServiceNeeds(
+    val remainInVehicle: Boolean = false,
+    val trunkLoadingHelp: Boolean = false,
+    val extraPreparationTime: Boolean = false
+) {
+    val requested: Boolean get() = remainInVehicle || trunkLoadingHelp || extraPreparationTime
+}
+data class CarePickup(
+    val needs: ServiceNeeds = ServiceNeeds(),
+    val response: AssistanceResponse = AssistanceResponse.PENDING,
+    val customerReady: Boolean = false
+) {
+    val permitsHandoff: Boolean get() = !needs.requested ||
+        (response == AssistanceResponse.ACCEPTED && customerReady)
+    fun changeNeeds(value: ServiceNeeds): CarePickup =
+        if (value == needs) this else CarePickup(needs = value)
+    fun merchantResponse(value: AssistanceResponse): CarePickup =
+        if (!needs.requested) this else copy(response = value,
+            customerReady = customerReady && value == AssistanceResponse.ACCEPTED)
+    fun invalidate(vehicle: VehicleSnapshot, now: Long): CarePickup =
+        if (SafetyPolicy.locked(vehicle, now)) copy(customerReady = false) else this
+    fun confirmReady(vehicle: VehicleSnapshot, now: Long): CarePickup =
+        if (needs.requested && response == AssistanceResponse.ACCEPTED && !SafetyPolicy.locked(vehicle, now))
+            copy(customerReady = true) else invalidate(vehicle, now)
+}
+
 // All times supplied to the domain are monotonic milliseconds, never wall-clock time.
 data class VehicleSnapshot(
     val gear: Gear = Gear.P,
@@ -40,6 +67,7 @@ interface VehicleAdapter {
 interface PaymentAdapter { fun pay(order: Order, key: String): PaymentReceipt }
 
 data class DemoState(
+    val care: CarePickup = CarePickup(),
     val now: Long = 0,
     val vehicle: VehicleSnapshot = VehicleSnapshot(),
     val sensor: SensorSample = SensorSample(),

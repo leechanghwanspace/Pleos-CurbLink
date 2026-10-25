@@ -23,8 +23,8 @@ object TailgateInterlockEvaluator {
             Check("⑥ OEM 제어 허용", v.oemControlAllowed)
         ))
     fun canRequest(v: VehicleSnapshot, s: SensorSample, grant: StaffGrant?, order: Order,
-                   now: Long, zoneConfirmed: Boolean, explicitApproval: Boolean): Boolean =
-        explicitApproval && zoneConfirmed && order.state == OrderState.READY && v.tailgate == Tailgate.CLOSED &&
+                   now: Long, zoneConfirmed: Boolean, explicitApproval: Boolean, care: CarePickup = CarePickup()): Boolean =
+        care.permitsHandoff && explicitApproval && zoneConfirmed && order.state == OrderState.READY && v.tailgate == Tailgate.CLOSED &&
             evaluate(v, s, grant, order, now).prerequisitesMet
 }
 

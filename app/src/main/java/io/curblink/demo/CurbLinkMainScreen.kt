@@ -19,7 +19,7 @@ fun CurbLinkMainScreen(vm: CurbLinkViewModel) {
     val s by vm.state.collectAsState()
     val locked = SafetyPolicy.locked(s.vehicle, s.now)
     val interlock = TailgateInterlockEvaluator.evaluate(s.vehicle, s.sensor, s.staff, s.order, s.now)
-    val canApprove = interlock.prerequisitesMet && s.zoneConfirmed && s.order.state == OrderState.READY && s.vehicle.tailgate == Tailgate.CLOSED
+    val canApprove = TailgateInterlockEvaluator.canRequest(s.vehicle, s.sensor, s.staff, s.order, s.now, s.zoneConfirmed, true, s.care)
     var evaluator by remember { mutableStateOf(false) }
     Surface(Modifier.fillMaxSize()) {
         Column(Modifier.safeDrawingPadding().padding(18.dp).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -27,6 +27,8 @@ fun CurbLinkMainScreen(vm: CurbLinkViewModel) {
             Text("차량에서 이어지는 픽업  |  독립 시연 APK · 모든 외부 연동은 모의", fontSize = 14.sp)
             Text("${s.vehicle.gear}  ·  ${s.vehicle.speedKmh.toInt()} km/h  ·  ${if (locked) "운전자 조작 잠금" else "정차 모드"}  ·  ${s.order.state}")
             if (locked) {
+                Text(assistanceLabel(s.care), fontSize = 20.sp)
+                if (s.care.needs.requested) Text("고객 준비 확인 해제 · 정차 후 다시 확인하세요", fontSize = 20.sp)
                 Card(Modifier.fillMaxWidth()) { Column(Modifier.padding(20.dp)) {
                     Text("운전에 집중해 주세요", fontSize = 24.sp)
                     Text("상품 탐색·결제·직원 코드·개방 조작이 잠겼습니다.")
@@ -72,6 +74,17 @@ fun CurbLinkMainScreen(vm: CurbLinkViewModel) {
                     OutlinedButton(onClick = vm::repeatPayment) { Text("중복 결제 재시도") }
                     OutlinedButton(onClick = vm::issueOtp) { Text("직원 코드 발급") }
                 }
+                Text("배려 요청 매장 응답 (상품 준비 완료와 별개)", fontSize = 20.sp)
+                Text("요청 서비스: " + listOfNotNull(
+                    "차량 안에서 수령".takeIf { s.care.needs.remainInVehicle },
+                    "트렁크 적재 도움".takeIf { s.care.needs.trunkLoadingHelp },
+                    "준비 시간 여유".takeIf { s.care.needs.extraPreparationTime }
+                ).joinToString(" · ").ifEmpty { "없음" }, fontSize = 20.sp)
+                Text(assistanceLabel(s.care), fontSize = 20.sp)
+                Button(onClick = { vm.assistanceResponse(AssistanceResponse.ACCEPTED) },
+                    enabled = s.care.needs.requested, modifier = Modifier.heightIn(min = 64.dp)) { Text("배려 요청 수락 · ACCEPTED", fontSize = 20.sp) }
+                OutlinedButton(onClick = { vm.assistanceResponse(AssistanceResponse.DECLINED) },
+                    enabled = s.care.needs.requested, modifier = Modifier.heightIn(min = 64.dp)) { Text("배려 요청 거절 · DECLINED", fontSize = 20.sp) }
                 Text("직원 단말 모의 코드: ${s.issuedOtp ?: "미발급/소비됨"}  ·  모의 청구 ${s.chargeCount}회  ·  개방 요청 ${s.commandCount}회")
                 Controls {
                     OutlinedButton(onClick = vm::acknowledgeOpen) { Text("차량 열림 응답") }
@@ -100,6 +113,7 @@ fun CurbLinkMainScreen(vm: CurbLinkViewModel) {
     Text("제휴 마트 DEMO · 픽업 구역 A-3")
     Text("우유 · 채소 · 식료품\n총 24,000원")
     Text("주문 ${s.order.id}")
+    CarePanel(s, vm)
     Button(onClick = vm::pay, enabled = s.order.state == OrderState.DRAFT) { Text("모의 결제 승인") }
     if (s.pendingMilk) {
         Text("음성 변경 요청 보류: 우유 추가\nMVP에서는 변경 결제를 실행하지 않습니다.")
@@ -123,11 +137,43 @@ fun CurbLinkMainScreen(vm: CurbLinkViewModel) {
 }
 @Composable private fun HandoffPanel(s: DemoState, vm: CurbLinkViewModel, checks: InterlockStatus, enabled: Boolean) {
     Text("후방을 직접 확인한 후 승인하세요.")
+    Text(assistanceLabel(s.care), fontSize = 20.sp)
+    if (s.care.needs.requested) {
+        Text(if (s.care.customerReady) "고객 준비: 직접 확인 완료" else "고객 준비: 확인 대기 · 도착만으로 확인되지 않습니다", fontSize = 20.sp)
+        Button(onClick = vm::customerReady,
+            enabled = s.care.response == AssistanceResponse.ACCEPTED && !s.care.customerReady &&
+                s.order.state in listOf(OrderState.DRAFT, OrderState.PAID, OrderState.READY),
+            modifier = Modifier.fillMaxWidth().heightIn(min = 64.dp)) { Text("정차 중 · 인계 준비됐어요", fontSize = 20.sp) }
+    }
     OutlinedTextField(value = s.otpInput, onValueChange = vm::otpInput, label = { Text("직원 일회용 코드") }, singleLine = true,
         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number), modifier = Modifier.fillMaxWidth())
     OutlinedButton(onClick = vm::verifyOtp) { Text("코드 확인") }
     checks.checks.forEach { Text("${if (it.passed) "✓" else "○"} ${it.label}", fontSize = 13.sp) }
     Text("⑦ 이번 개방 요청에 대한 사용자 승인", fontSize = 13.sp)
-    Button(onClick = vm::approveOpen, enabled = enabled, modifier = Modifier.fillMaxWidth()) { Text("확인 후 개방 요청 승인") }
+    Button(onClick = vm::approveOpen, enabled = enabled, modifier = Modifier.fillMaxWidth().heightIn(min = 64.dp)) { Text("확인 후 개방 요청 승인", fontSize = 20.sp) }
     Text("테일게이트: ${s.vehicle.tailgate}\n요청 전송은 실제 열림 확인과 다릅니다.", fontSize = 12.sp)
+}
+
+private fun assistanceLabel(care: CarePickup): String = if (!care.needs.requested) "일반 픽업 · 배려 요청 없음" else when (care.response) {
+    AssistanceResponse.PENDING -> "배려 요청: 매장 응답 대기 · 지원 미확정"
+    AssistanceResponse.ACCEPTED -> "배려 요청: 매장 수락"
+    AssistanceResponse.DECLINED -> "배려 요청: 매장 거절 · 인계 보류"
+}
+
+@Composable private fun CarePanel(s: DemoState, vm: CurbLinkViewModel) {
+    Text("배려 픽업 (선택)", fontSize = 22.sp)
+    Text("필요한 서비스만 선택하세요. 진단·증빙을 수집하지 않습니다. 실제 음성 기능 없이 정차 중 터치로 조작합니다.", fontSize = 18.sp)
+    val editable = s.order.state in listOf(OrderState.DRAFT, OrderState.PAID, OrderState.READY)
+    val needs = s.care.needs
+    CareOption(editable, "차량 안에서 수령", needs.remainInVehicle) { vm.serviceNeeds(needs.copy(remainInVehicle = !needs.remainInVehicle)) }
+    CareOption(editable, "트렁크 적재 도움", needs.trunkLoadingHelp) { vm.serviceNeeds(needs.copy(trunkLoadingHelp = !needs.trunkLoadingHelp)) }
+    CareOption(editable, "준비 시간 여유", needs.extraPreparationTime) { vm.serviceNeeds(needs.copy(extraPreparationTime = !needs.extraPreparationTime)) }
+    Text(assistanceLabel(s.care), fontSize = 20.sp)
+}
+
+@Composable private fun CareOption(enabled: Boolean, label: String, selected: Boolean, change: () -> Unit) {
+    OutlinedButton(onClick = change, enabled = enabled,
+        modifier = Modifier.fillMaxWidth().heightIn(min = 64.dp)) {
+        Text("${if (selected) "선택됨" else "선택 안 함"} · $label", fontSize = 20.sp)
+    }
 }

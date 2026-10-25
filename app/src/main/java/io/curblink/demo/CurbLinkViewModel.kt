@@ -24,6 +24,7 @@ class CurbLinkViewModel : ViewModel() {
                 val s = mutable.value
                 val timedOut = s.commandAt != null && now - s.commandAt >= 5000
                 mutable.value = s.copy(now = now,
+                    care = s.care.invalidate(s.vehicle, now),
                     vehicle = s.vehicle.copy(capturedAt = now),
                     sensor = if (s.sensorStreaming) s.sensor.copy(capturedAt = now) else s.sensor,
                     order = if (timedOut) s.order.copy(state = OrderState.READY) else s.order,
@@ -47,10 +48,11 @@ class CurbLinkViewModel : ViewModel() {
     fun gear(gear: Gear, speed: Float) {
         val s = mutable.value
         mutable.value = s.copy(vehicle = s.vehicle.copy(gear = gear, speedKmh = speed, capturedAt = clock()),
-            staff = null, issuedOtp = null)
+            staff = null, issuedOtp = null,
+            care = s.care.invalidate(s.vehicle.copy(gear = gear, speedKmh = speed), clock()))
         note("차량 상태 변경 · 직원 인증 초기화")
     }
-    fun restriction() { val s = mutable.value; mutable.value = s.copy(vehicle = s.vehicle.copy(uxRestricted = !s.vehicle.uxRestricted), staff = null) }
+    fun restriction() { val s = mutable.value; mutable.value = s.copy(vehicle = s.vehicle.copy(uxRestricted = !s.vehicle.uxRestricted), staff = null, care = s.care.copy(customerReady = false)) }
     fun permission() { val s = mutable.value; mutable.value = s.copy(vehicle = s.vehicle.copy(oemControlAllowed = !s.vehicle.oemControlAllowed), staff = null) }
     fun sensor(verdict: SensorVerdict) {
         val s = mutable.value
@@ -61,8 +63,30 @@ class CurbLinkViewModel : ViewModel() {
     fun freezeSensor() { mutable.value = mutable.value.copy(sensorStreaming = false); note("센서 스트림 중단 · 3초 후 확인 불가") }
     fun confirmZone() {
         val s = mutable.value
-        mutable.value = s.copy(zoneConfirmed = !s.zoneConfirmed, staff = null, issuedOtp = null)
+        mutable.value = s.copy(zoneConfirmed = !s.zoneConfirmed, staff = null, issuedOtp = null,
+            care = if (s.zoneConfirmed) s.care.copy(customerReady = false) else s.care)
         note("구역 번호 A-3 수동 확인 · UWB 실측 아님")
+    }
+    private fun canEditCare(s: DemoState): Boolean =
+        !SafetyPolicy.locked(s.vehicle, clock()) &&
+            s.order.state in listOf(OrderState.DRAFT, OrderState.PAID, OrderState.READY)
+
+    fun serviceNeeds(needs: ServiceNeeds) {
+        val s = mutable.value
+        if (!canEditCare(s)) return
+        mutable.value = s.copy(care = s.care.changeNeeds(needs))
+        note("서비스 요청 변경 · 매장 응답과 고객 준비 재확인 필요")
+    }
+    fun assistanceResponse(response: AssistanceResponse) {
+        val s = mutable.value
+        if (s.order.state == OrderState.COMPLETE || s.order.state == OrderState.OPEN) return
+        mutable.value = s.copy(care = s.care.merchantResponse(response))
+        note("모의 매장 배려 요청 응답: $response")
+    }
+    fun customerReady() {
+        val s = mutable.value
+        if (!canEditCare(s)) return
+        mutable.value = s.copy(care = s.care.confirmReady(s.vehicle, clock()))
     }
     fun pay() {
         val s = mutable.value
@@ -119,7 +143,7 @@ class CurbLinkViewModel : ViewModel() {
     fun approveOpen() {
         val s = mutable.value; val now = clock()
         // Re-evaluate live conditions at the click, not a cached enabled flag.
-        if (!TailgateInterlockEvaluator.canRequest(s.vehicle, s.sensor, s.staff, s.order, now, s.zoneConfirmed, true)) {
+        if (!TailgateInterlockEvaluator.canRequest(s.vehicle, s.sensor, s.staff, s.order, now, s.zoneConfirmed, true, s.care)) {
             note("개방 요청 거부 · 조건을 다시 확인하세요"); return
         }
         mutable.value = s.copy(order = s.order.copy(state = OrderState.OPEN_REQUESTED), commandAt = now,
@@ -131,7 +155,7 @@ class CurbLinkViewModel : ViewModel() {
         if (s.order.state != OrderState.OPEN_REQUESTED) { note("진행 중인 개방 요청 없음"); return }
         val live = TailgateInterlockEvaluator.evaluate(s.vehicle, s.sensor,
             StaffGrant(s.order.id, s.order.revision, clock() + 1), s.order, clock())
-        if (!live.prerequisitesMet) { note("모의 차량 제어기 동작 거부 · 조건 변경"); return }
+        if (!live.prerequisitesMet || !s.zoneConfirmed || !s.care.permitsHandoff) { note("모의 차량 제어기 동작 거부 · 조건 변경"); return }
         mutable.value = s.copy(vehicle = s.vehicle.copy(tailgate = Tailgate.OPEN), order = s.order.copy(state = OrderState.OPEN), commandAt = null)
         note("모의 차량 열림 상태 수신 · 상품 적재 대기")
     }
