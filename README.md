@@ -1,5 +1,7 @@
 # Pleos CurbLink (플레오스 커브링크)
 
+자동 협업 구성과 실행 방법은 [Codex × Antigravity 협업 안내](collaboration/README.md)를 참고하세요. 자동 변경은 검토·빌드·시험 후 `automation/care-pickup` 브랜치에 게시하며, `main`에는 자동 병합하지 않습니다.
+
 차량 상태와 센서 인터록 기반의 비하차 신뢰 인계(Trusted Handoff) 커넥티드 서비스  
 현대자동차그룹 오픈 앱 개발 공모전(HMG App Dev Challenge) 출품작 · 1인 개발 프로토타입
 
