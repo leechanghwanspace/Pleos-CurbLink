@@ -1,0 +1,22 @@
+Pleos CurbLink · 실제 APK 실행 캡처
+
+캡처 환경: Android Automotive OS API 33, x86_64, Google Automotive 시스템 이미지.
+해상도: 1600 × 1000 PNG. Android 화면을 adb screencap으로 직접 캡처.
+실행 APK: Pleos-CurbLink-demo.apk (0.1-demo)
+APK SHA-256: 48cd7a499eb8107e07f879bfa05a0d7b43c6fe63217e9d12a6bc0a753029d59a
+
+01-parked-order.png: P단·0km/h, 초기 주문·모의 결제, 직원 인증 전 개방 승인 비활성.
+02-driving-lock.png: 가상 D단·40km/h, 상품·결제·코드·개방 조작 화면 잠금.
+03-obstacle-hold.png: 준비 완료·구역 확인 후 모의 장애물 감지, 개방 승인 비활성.
+04-handoff-ready.png: 주문별 일회용 직원 코드 인증, 6개 사전 조건 충족, 승인 버튼 활성.
+05-handoff-complete.png: 사용자 승인→모의 열림 응답→모의 닫힘·수령 확인, COMPLETE 표시.
+06-signal-stop-lock.png: 가상 D단·0km/h에서도 운전자 조작 잠금 유지.
+
+전부 동일 APK의 실제 실행 화면이다. 목업·이미지 합성·수정 화면이 아니다.
+화면에 보이는 차량·센서·매장·결제는 앱 내 모의 입력이다.
+주행 잠금은 APK의 가상 상태를 조작한 결과이며 실차 또는 OS의 실제 주행 신호 연동 시험이 아니다.
+이 환경은 일반 AAOS AVD이며 Pleos 전용 AVD·실차 UI 또는 Pleos SDK 연동 검증이 아니다.
+Gleo 음성, GPS/UWB, SVM, CarPay, 실제 테일게이트 제어는 연결하지 않았다.
+
+관찰 결과: 앱 설치·실행 및 위 6개 화면 상태 확인. 정상 인계 여정에서 READY→OPEN_REQUESTED→OPEN→COMPLETE를 버튼 조작으로 재현했다.
+검증 한계: 차량 센서 인식 성능, 실차 안전, OEM 심사 적합성, 실제 결제, 모든 오류 여정의 UI 자동 회귀를 검증한 결과는 아니다.

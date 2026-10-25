@@ -1,0 +1,21 @@
+import sys,time,re
+sys.path.insert(0,'work')
+from capture_android import adb,dump,screenshot
+adb('shell','input','tap','100','1076')
+adb('shell','input','tap','666','1134')
+root=dump()
+text=' '.join(n.attrib.get('text','') for n in root.iter('node'))
+code=re.search(r'직원 단말 모의 코드: (\d{6})',text).group(1)
+adb('shell','input','tap','1100','340')
+adb('shell','input','text',code)
+adb('shell','input','keyevent','4')
+adb('shell','input','tap','1072','402')
+time.sleep(.4)
+adb('shell','input','tap','90','868')
+adb('shell','wm','size','1600x1000')
+time.sleep(1)
+screenshot('04-handoff-ready.png')
+root=dump()
+for n in root.iter('node'):
+ t=n.attrib.get('text','')
+ if '직원 인증' in t or 'READY' in t or '확인 후 개방' in t:print(t,n.attrib)
