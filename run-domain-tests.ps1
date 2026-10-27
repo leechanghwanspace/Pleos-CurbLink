@@ -18,5 +18,5 @@ $junit = Find-CachedJar 'junit/junit/4.13.2'
 $hamcrest = Find-CachedJar 'org.hamcrest/hamcrest-core/1.3'
 $stdlib = Find-CachedJar 'org.jetbrains.kotlin/kotlin-stdlib/2.0.21'
 $classpath = @($compiledMain, $compiledTests, $junit, $hamcrest, $stdlib) -join [IO.Path]::PathSeparator
-& $javaExe -cp $classpath org.junit.runner.JUnitCore io.curblink.demo.DomainTest
+& $javaExe -cp $classpath org.junit.runner.JUnitCore io.curblink.demo.DomainTest io.curblink.demo.BridgeSessionTest
 if ($LASTEXITCODE -ne 0) { throw 'JUnit tests failed.' }

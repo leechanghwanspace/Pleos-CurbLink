@@ -1,0 +1,2919 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Pleos CurbLink — 3D 차량 연동·안전 인터록·배려 픽업 시뮬레이터</title>
+  <!-- 고정 버전 CDN 라이브러리 (최초 로드 시 인터넷 연결 필요) -->
+  <script src="https://cdn.tailwindcss.com/3.4.15"></script>
+  <script crossorigin src="https://unpkg.com/react@18.3.1/umd/react.production.min.js"></script>
+  <script crossorigin src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.production.min.js"></script>
+  <script crossorigin src="https://unpkg.com/three@0.160.0/build/three.min.js"></script>
+  <script crossorigin src="https://unpkg.com/@babel/standalone@7.26.2/babel.min.js"></script>
+  <style>
+    :root {
+      color-scheme: dark;
+    }
+    body {
+      margin: 0;
+      background-color: #060911;
+      color: #f1f5f9;
+      font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      overflow-x: hidden;
+    }
+    *:focus-visible {
+      outline: 2px solid #38bdf8;
+      outline-offset: 2px;
+    }
+    .custom-scroll::-webkit-scrollbar {
+      width: 6px;
+      height: 6px;
+    }
+    .custom-scroll::-webkit-scrollbar-track {
+      background: #0f172a;
+    }
+    .custom-scroll::-webkit-scrollbar-thumb {
+      background: #334155;
+      border-radius: 3px;
+    }
+  </style>
+</head>
+<body>
+  <div id="root"></div>
+
+  <script type="text/babel">
+    const { useState, useEffect, useRef, useMemo, useCallback } = React;
+
+    // ============================================================================
+    // 1. 상수 및 프로토콜 규격 (curblink.vehicle.v1)
+    // ============================================================================
+    const PROTOCOL_VERSION = 'curblink.vehicle.v1';
+    const DEFAULT_WS_URL = 'ws://127.0.0.1:8765';
+    const DEFAULT_VEHICLE_TTL_MS = 1000;
+    const DEFAULT_SENSOR_TTL_MS = 3000;
+    const COMMAND_TIMEOUT_MS = 4000;
+    const MAX_LOG_COUNT = 60;
+    const MAX_SEEN_IDS = 200;
+
+    const REASON_LABELS_KO = {
+      BRIDGE_DISCONNECTED: '통신 연결 끊김 (제어 차단)',
+      STATE_SNAPSHOT_UNKNOWN: '차량 상태 스냅샷 미수신 (UNKNOWN)',
+      SPEED_NON_ZERO: '차량 속도 0km/h 아님 (주행 중)',
+      GEAR_NOT_P: '변속 기어가 P단이 아님',
+      UX_RESTRICTED: '주행 중 UX 제한 활성화됨',
+      VEHICLE_DATA_STALE_OR_INVALID: '차량 상태 데이터 만료(1초 초과) 또는 무효',
+      SENSOR_DATA_EXPIRED: '주변 센서 데이터 만료(3초 초과) 또는 무효',
+      REAR_OBSTACLE_DETECTED: '트렁크 후방 장애물 감지됨',
+      STAFF_OTP_UNVERIFIED: '직원 OTP 인증 미완료',
+      OEM_CONTROL_DENIED: 'OEM 제어 권한 거부됨',
+      ORDER_NOT_READY: '매장 주문 준비 미완료',
+      PICKUP_ZONE_UNCONFIRMED: '지정 픽업 구역(A-3) 미확인',
+      TRUNK_NOT_CLOSED: '트렁크가 닫힘(CLOSED) 상태가 아님',
+      USER_EXPLICIT_APPROVAL_REQUIRED: '사용자의 명시적 열기 요청 없음',
+      CARE_MERCHANT_NOT_ACCEPTED: '배려 픽업: 매장 지원 수락 대기 또는 거절됨',
+      CARE_CUSTOMER_NOT_READY: '배려 픽업: 정차 중 고객 "준비됐어요" 미확인',
+    };
+
+    function createId(prefix = 'msg') {
+      return `${prefix}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 7)}`;
+    }
+
+    function isCareRequested(carePrefs) {
+      if (!carePrefs) return false;
+      return Boolean(carePrefs.waitInVehicle || carePrefs.loadingHelp || carePrefs.extraPrepTime);
+    }
+
+    // ============================================================================
+    // 2. 단일 안전 판단 함수 (트렁크 열기 허용 13개 조건 검증)
+    // ============================================================================
+    function evaluateTrunkSafety({
+      vehicleState,
+      scenarioState,
+      connectionState,
+      nowMs,
+      explicitUserRequest = false,
+      ttlConfig = { vehicleTtlMs: DEFAULT_VEHICLE_TTL_MS, sensorTtlMs: DEFAULT_SENSOR_TTL_MS },
+    }) {
+      const checks = [];
+      const addCheck = (id, label, passed, failCode) => {
+        checks.push({ id, label, passed: Boolean(passed), code: passed ? null : failCode });
+      };
+
+      const isConnected = Boolean(connectionState && connectionState.connected);
+      const hasSnapshot = Boolean(connectionState && connectionState.snapshotReceived);
+
+      const vehicleFresh =
+        isConnected &&
+        hasSnapshot &&
+        Boolean(vehicleState.vehicleDataValid) &&
+        vehicleState.lastVehicleRxAt > 0 &&
+        nowMs - vehicleState.lastVehicleRxAt <= ttlConfig.vehicleTtlMs;
+
+      const sensorFresh =
+        isConnected &&
+        hasSnapshot &&
+        Boolean(vehicleState.sensorDataValid) &&
+        vehicleState.lastSensorRxAt > 0 &&
+        nowMs - vehicleState.lastSensorRxAt <= ttlConfig.sensorTtlMs;
+
+      addCheck('conn', '통신 연결 및 상태 스냅샷 확인', isConnected && hasSnapshot, !isConnected ? 'BRIDGE_DISCONNECTED' : 'STATE_SNAPSHOT_UNKNOWN');
+      addCheck('c1', '1. 차량 속도 0 km/h', isConnected && hasSnapshot && vehicleState.speedKph === 0, 'SPEED_NON_ZERO');
+      addCheck('c2', '2. 기어 P단', isConnected && hasSnapshot && vehicleState.gear === 'P', 'GEAR_NOT_P');
+      addCheck('c3', '3. 주행 UX 제한 없음', isConnected && hasSnapshot && vehicleState.uxRestricted === false, 'UX_RESTRICTED');
+      addCheck('c4', '4. 차량 상태 데이터 유효 (1초 이내)', vehicleFresh, 'VEHICLE_DATA_STALE_OR_INVALID');
+      addCheck('c5', '5. 주변 센서 데이터 유효 (3초 이내)', sensorFresh, 'SENSOR_DATA_EXPIRED');
+      addCheck('c6', '6. 트렁크 후방 장애물 없음', isConnected && hasSnapshot && vehicleState.rearObstacle === false, 'REAR_OBSTACLE_DETECTED');
+      addCheck('c7', '7. 직원 OTP 인증 완료', isConnected && hasSnapshot && scenarioState.otpVerified === true, 'STAFF_OTP_UNVERIFIED');
+      addCheck('c8', '8. OEM 제어 권한 허용', isConnected && hasSnapshot && vehicleState.oemControlAllowed === true, 'OEM_CONTROL_DENIED');
+      addCheck('c9', '9. 주문 준비 완료', isConnected && hasSnapshot && scenarioState.orderReady === true, 'ORDER_NOT_READY');
+      addCheck('c10', '10. 픽업 구역(A-3) 확인 완료', isConnected && hasSnapshot && scenarioState.pickupZoneConfirmed === true, 'PICKUP_ZONE_UNCONFIRMED');
+      addCheck('c11', '11. 트렁크 닫힘(CLOSED) 확인', isConnected && hasSnapshot && vehicleState.doors?.trunk === 'CLOSED', 'TRUNK_NOT_CLOSED');
+      addCheck('c12', '12. 사용자 명시적 열기 요청', Boolean(explicitUserRequest), 'USER_EXPLICIT_APPROVAL_REQUIRED');
+
+      const careNeeded = isCareRequested(scenarioState.carePrefs);
+      if (careNeeded) {
+        addCheck(
+          'c13a',
+          '13-A. 배려 픽업: 매장 지원 수락 완료',
+          isConnected && hasSnapshot && scenarioState.merchantResponse === 'ACCEPTED',
+          'CARE_MERCHANT_NOT_ACCEPTED'
+        );
+        addCheck(
+          'c13b',
+          '13-B. 배려 픽업: 고객 명시적 준비 확인',
+          isConnected && hasSnapshot && scenarioState.customerReadyConfirmed === true,
+          'CARE_CUSTOMER_NOT_READY'
+        );
+      } else {
+        addCheck('c13', '13. 일반 픽업 모드 (추가 배려 조건 불필요)', true, null);
+      }
+
+      const reasonCodes = checks.filter((c) => !c.passed && c.code).map((c) => c.code);
+      // 버튼 활성화 가능 여부 (12번 사용자 클릭 직전 1~11, 13번 사전조건 충족 여부)
+      const preConditionsCodes = reasonCodes.filter((code) => code !== 'USER_EXPLICIT_APPROVAL_REQUIRED');
+
+      return {
+        allowed: reasonCodes.length === 0,
+        canEnableOpenButton: preConditionsCodes.length === 0,
+        reasonCodes,
+        preConditionsCodes,
+        reasonsKo: reasonCodes.map((c) => REASON_LABELS_KO[c] || c),
+        preConditionsKo: preConditionsCodes.map((c) => REASON_LABELS_KO[c] || c),
+        checks,
+        vehicleFresh,
+        sensorFresh,
+      };
+    }
+
+    // ============================================================================
+    // 3. 메시지 검증기 (Schema & Enum Validation)
+    // ============================================================================
+    function validateProtocolMessage(raw) {
+      if (!raw || typeof raw !== 'object') return { valid: false, error: 'Not an object' };
+      if (raw.protocol !== PROTOCOL_VERSION) return { valid: false, error: 'Unsupported protocol' };
+      if (typeof raw.messageId !== 'string' || !raw.messageId.trim()) return { valid: false, error: 'Invalid messageId' };
+      if (!['ivi-app', 'simulator', 'android-bridge'].includes(raw.source)) return { valid: false, error: 'Invalid source' };
+      if (typeof raw.sessionId !== 'string' || !raw.sessionId.trim()) return { valid: false, error: 'Invalid sessionId' };
+      if (!['HELLO', 'HEARTBEAT', 'COMMAND_REQUEST', 'COMMAND_RESULT', 'VEHICLE_STATE', 'SCENARIO_STATE', 'EVALUATOR_INJECT', 'ERROR'].includes(raw.type)) {
+        return { valid: false, error: 'Invalid message type' };
+      }
+      if (typeof raw.timestamp !== 'number' || !Number.isFinite(raw.timestamp)) return { valid: false, error: 'Invalid timestamp' };
+      if (!raw.payload || typeof raw.payload !== 'object') return { valid: false, error: 'Missing payload' };
+
+      const p = raw.payload;
+      if (raw.type === 'COMMAND_REQUEST') {
+        if (typeof p.requestId !== 'string' || !p.requestId) return { valid: false, error: 'Missing requestId' };
+        if (!['driverDoor', 'passengerDoor', 'trunk'].includes(p.target)) return { valid: false, error: 'Invalid target' };
+        if (!['OPEN', 'CLOSE'].includes(p.action)) return { valid: false, error: 'Invalid action' };
+      } else if (raw.type === 'COMMAND_RESULT') {
+        if (typeof p.requestId !== 'string' || !p.requestId) return { valid: false, error: 'Missing requestId' };
+        if (typeof p.accepted !== 'boolean') return { valid: false, error: 'Invalid accepted boolean' };
+        if (!Array.isArray(p.reasonCodes)) return { valid: false, error: 'Invalid reasonCodes array' };
+      } else if (raw.type === 'VEHICLE_STATE') {
+        if (!Number.isSafeInteger(p.sequence) || p.sequence < 0) return { valid: false, error: 'Invalid sequence' };
+        if (typeof p.speedKph !== 'number' || !Number.isFinite(p.speedKph) || p.speedKph < 0 || p.speedKph > 200) return { valid: false, error: 'Invalid speedKph' };
+        if (!['P', 'D', 'R', 'UNKNOWN'].includes(p.gear)) return { valid: false, error: 'Invalid gear' };
+        if (['uxRestricted', 'rearObstacle', 'vehicleDataValid', 'sensorDataValid', 'oemControlAllowed'].some(k => typeof p[k] !== 'boolean')) return { valid: false, error: 'Invalid uxRestricted' };
+        if (!p.doors || typeof p.doors !== 'object') return { valid: false, error: 'Missing doors' };
+        for (const k of ['driverDoor', 'passengerDoor', 'trunk']) {
+          if (!['OPEN', 'CLOSED', 'UNKNOWN'].includes(p.doors[k])) return { valid: false, error: `Invalid door state: ${k}` };
+        }
+      }
+      return { valid: true };
+    }
+
+    // ============================================================================
+    // 4. 발표용 6단계 자동 시나리오 정의 (약 72초)
+    // ============================================================================
+    const PRESENTATION_STEPS = [
+      {
+        step: 1,
+        title: '1단계: 퇴근길 주행 (30km/h · D단)',
+        durationMs: 11000,
+        camera: 'IVI_FOCUS',
+        narration: '주행 중(30km/h, D단)에는 운전자 주의 분산 방지를 위해 앱의 터치 조작이 잠깁니다. 사전 작성된 Gleo 음성 시연으로 주문을 확인합니다.',
+        voiceDialog: [
+          { speaker: '운전자', text: '"헤이 글레오, 마트 픽업 주문 상태 알려줘."' },
+          { speaker: 'Gleo 시연', text: '"지정 픽업 구역 A-3로 안내 중입니다. 차량 내 대기 및 적재 도움 옵션을 요청할까요?"' },
+        ],
+        simulatedUserInput: false,
+        apply: (ctx) => {
+          ctx.setVehicle({
+            speedKph: 30,
+            gear: 'D',
+            uxRestricted: true,
+            doors: { driverDoor: 'CLOSED', passengerDoor: 'CLOSED', trunk: 'CLOSED' },
+            rearObstacle: false,
+            vehicleDataValid: true,
+            sensorDataValid: true,
+            oemControlAllowed: true,
+          });
+          ctx.setScenario({
+            orderReady: false,
+            pickupZoneConfirmed: false,
+            otpVerified: false,
+            carePrefs: { waitInVehicle: false, loadingHelp: false, extraPrepTime: false },
+            merchantResponse: 'PENDING',
+            customerReadyConfirmed: false,
+            handoffCompleted: false,
+          });
+        },
+      },
+      {
+        step: 2,
+        title: '2단계: 배려 픽업 접수 및 매장 수락',
+        durationMs: 11000,
+        camera: 'IVI_FOCUS',
+        narration: '차량 내 대기 및 물품 적재 도움이 접수되고, 매장에서 지원 요청을 수락(ACCEPTED)합니다. 진단명이나 장애 여부는 수집하지 않습니다.',
+        voiceDialog: [
+          { speaker: '운전자', text: '"응, 차량 안에서 대기하고 적재 도움 요청해줘."' },
+          { speaker: 'Gleo 시연', text: '"배려 픽업 요청이 접수되었으며 매장에서 지원을 수락했습니다."' },
+        ],
+        simulatedUserInput: true,
+        apply: (ctx) => {
+          ctx.setScenario((prev) => ({
+            ...prev,
+            orderReady: true,
+            carePrefs: { waitInVehicle: true, loadingHelp: true, extraPrepTime: false },
+            merchantResponse: 'ACCEPTED',
+            customerReadyConfirmed: false,
+          }));
+        },
+      },
+      {
+        step: 3,
+        title: '3단계: 픽업 구역(A-3) 도착 및 정차',
+        durationMs: 12000,
+        camera: 'EXTERIOR',
+        narration: '픽업 구역 A-3에 도착하여 차속 0km/h, P단으로 정차하고 직원 OTP 인증을 마쳤습니다. 단, 도착만으로 고객 준비 상태가 자동 완료되지는 않습니다.',
+        voiceDialog: [],
+        simulatedUserInput: false,
+        apply: (ctx) => {
+          ctx.setVehicle((prev) => ({
+            ...prev,
+            speedKph: 0,
+            gear: 'P',
+            uxRestricted: false,
+            rearObstacle: false,
+          }));
+          ctx.setScenario((prev) => ({
+            ...prev,
+            orderReady: true,
+            pickupZoneConfirmed: true,
+            otpVerified: true,
+            customerReadyConfirmed: false,
+          }));
+        },
+      },
+      {
+        step: 4,
+        title: '4단계: 후방 장애물 감지 및 안전 차단',
+        durationMs: 13000,
+        camera: 'TRUNK_HANDOFF',
+        narration: '트렁크 후방에 장애물이 감지된 상태에서 열기를 요청하면 안전 인터록이 즉시 동작을 차단하고 사유를 표시합니다.',
+        voiceDialog: [],
+        simulatedUserInput: true,
+        apply: (ctx) => {
+          ctx.setVehicle((prev) => ({
+            ...prev,
+            rearObstacle: true,
+          }));
+          setTimeout(() => {
+            ctx.triggerOpenTrunkRequest('시연 스크립트 자동 열기 시도 (차단 검증)');
+          }, 2200);
+        },
+      },
+      {
+        step: 5,
+        title: '5단계: 장애물 제거 · 고객 준비 확인 · 조건 재검사',
+        durationMs: 12000,
+        camera: 'IVI_FOCUS',
+        narration: '후방 장애물이 제거되고 센서가 갱신된 후, 정차 중인 고객이 직접 "준비됐어요"를 확인합니다. 이제 트렁크 열기 사전 조건 12개가 모두 충족됩니다.',
+        voiceDialog: [],
+        simulatedUserInput: true,
+        apply: (ctx) => {
+          ctx.setVehicle((prev) => ({
+            ...prev,
+            rearObstacle: false,
+            sensorDataValid: true,
+          }));
+          ctx.setScenario((prev) => ({
+            ...prev,
+            customerReadyConfirmed: true,
+          }));
+        },
+      },
+      {
+        step: 6,
+        title: '6단계: 트렁크 개방 승인 및 물품 인계 완료',
+        durationMs: 14000,
+        camera: 'TRUNK_HANDOFF',
+        narration: '고객의 명시적 열기 요청 시점에 13개 전 조건을 재검사하여 승인합니다. 트렁크가 열리고 직원 적재 완료 후 닫히며 인계가 마무리됩니다.',
+        voiceDialog: [],
+        simulatedUserInput: true,
+        apply: (ctx) => {
+          setTimeout(() => {
+            ctx.triggerOpenTrunkRequest('시연 스크립트 사용자 열기 승인 재생');
+          }, 1500);
+          setTimeout(() => {
+            ctx.completeLoadingAndCloseTrunk();
+          }, 8500);
+        },
+      },
+    ];
+
+    // ============================================================================
+    // 5. Three.js 3D 차량 뷰 컴포넌트 (WebGL 불가 시 2D 폴백 지원)
+    // ============================================================================
+    function Vehicle3DViewport({
+      vehicleState,
+      scenarioState,
+      connectionState,
+      cameraMode,
+      setCameraMode,
+      reducedMotion,
+      onDoorMeshClick,
+    }) {
+      const mountRef = useRef(null);
+      const [webglAvailable, setWebglAvailable] = useState(true);
+
+      const stateRef = useRef({
+        vehicleState,
+        scenarioState,
+        connectionState,
+        cameraMode,
+        reducedMotion,
+      });
+
+      useEffect(() => {
+        stateRef.current = {
+          vehicleState,
+          scenarioState,
+          connectionState,
+          cameraMode,
+          reducedMotion,
+        };
+      }, [vehicleState, scenarioState, connectionState, cameraMode, reducedMotion]);
+
+      const onDoorClickRef = useRef(onDoorMeshClick);
+      useEffect(() => {
+        onDoorClickRef.current = onDoorMeshClick;
+      }, [onDoorMeshClick]);
+
+      useEffect(() => {
+        const container = mountRef.current;
+        if (!container || typeof THREE === 'undefined') {
+          setWebglAvailable(false);
+          return;
+        }
+
+        let renderer;
+        try {
+          const canvas = document.createElement('canvas');
+          const gl = canvas.getContext('webgl') || canvas.getContext('experimental-webgl');
+          if (!gl) throw new Error('WebGL not supported');
+          renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
+        } catch (err) {
+          setWebglAvailable(false);
+          return;
+        }
+
+        renderer.setSize(container.clientWidth, container.clientHeight);
+        renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+        renderer.shadowMap.enabled = true;
+        container.innerHTML = '';
+        container.appendChild(renderer.domElement);
+
+        const scene = new THREE.Scene();
+        scene.background = new THREE.Color(0x070b14);
+        scene.fog = new THREE.FogExp2(0x070b14, 0.032);
+
+        const camera = new THREE.PerspectiveCamera(
+          42,
+          container.clientWidth / Math.max(container.clientHeight, 1),
+          0.1,
+          100
+        );
+
+        // 조명
+        const ambient = new THREE.AmbientLight(0xdbeafe, 0.85);
+        scene.add(ambient);
+
+        const keyLight = new THREE.DirectionalLight(0xffffff, 1.5);
+        keyLight.position.set(6, 11, 7);
+        keyLight.castShadow = true;
+        scene.add(keyLight);
+
+        const fillLight = new THREE.DirectionalLight(0x38bdf8, 0.75);
+        fillLight.position.set(-7, 5, -6);
+        scene.add(fillLight);
+
+        // 바닥 그리드
+        const grid = new THREE.GridHelper(32, 32, 0x1e293b, 0x0f172a);
+        scene.add(grid);
+
+        // 픽업 구역 A-3 표시 패드
+        const zoneGroup = new THREE.Group();
+        const zoneBorderGeo = new THREE.RingGeometry(2.6, 2.75, 4);
+        zoneBorderGeo.rotateX(-Math.PI / 2);
+        zoneBorderGeo.rotateY(Math.PI / 4);
+        const zoneBorderMat = new THREE.MeshBasicMaterial({
+          color: 0x10b981,
+          side: THREE.DoubleSide,
+        });
+        const zoneRing = new THREE.Mesh(zoneBorderGeo, zoneBorderMat);
+        zoneRing.position.y = 0.02;
+        zoneGroup.add(zoneRing);
+
+        const zonePadGeo = new THREE.PlaneGeometry(3.2, 5.4);
+        zonePadGeo.rotateX(-Math.PI / 2);
+        const zonePadMat = new THREE.MeshBasicMaterial({
+          color: 0x10b981,
+          transparent: true,
+          opacity: 0.12,
+          side: THREE.DoubleSide,
+        });
+        const zonePad = new THREE.Mesh(zonePadGeo, zonePadMat);
+        zonePad.position.y = 0.01;
+        zoneGroup.add(zonePad);
+        scene.add(zoneGroup);
+
+        // 차량 본체 그룹
+        const carGroup = new THREE.Group();
+        scene.add(carGroup);
+
+        const bodyMat = new THREE.MeshStandardMaterial({
+          color: 0x1e293b,
+          metalness: 0.6,
+          roughness: 0.28,
+        });
+        const cabinMat = new THREE.MeshStandardMaterial({
+          color: 0x0f172a,
+          metalness: 0.85,
+          roughness: 0.15,
+          transparent: true,
+          opacity: 0.76,
+        });
+        const doorMatDriver = new THREE.MeshStandardMaterial({
+          color: 0x253b59,
+          metalness: 0.65,
+          roughness: 0.22,
+        });
+        const doorMatPassenger = new THREE.MeshStandardMaterial({
+          color: 0x253b59,
+          metalness: 0.65,
+          roughness: 0.22,
+        });
+        const trunkMat = new THREE.MeshStandardMaterial({
+          color: 0x294263,
+          metalness: 0.65,
+          roughness: 0.22,
+        });
+
+        // 하부 섀시
+        const lowerChassis = new THREE.Mesh(new THREE.BoxGeometry(2.08, 0.46, 4.45), bodyMat);
+        lowerChassis.position.set(0, 0.56, 0);
+        carGroup.add(lowerChassis);
+
+        // 프론트 후드
+        const hood = new THREE.Mesh(new THREE.BoxGeometry(2.02, 0.44, 1.3), bodyMat);
+        hood.position.set(0, 0.96, 1.52);
+        carGroup.add(hood);
+
+        // 루프 및 필러
+        const roof = new THREE.Mesh(new THREE.BoxGeometry(1.82, 0.12, 2.25), bodyMat);
+        roof.position.set(0, 1.76, -0.22);
+        carGroup.add(roof);
+
+        const windshield = new THREE.Mesh(new THREE.BoxGeometry(1.76, 0.68, 0.08), cabinMat);
+        windshield.position.set(0, 1.42, 0.9);
+        windshield.rotation.x = -0.5;
+        carGroup.add(windshield);
+
+        // 센터페시아 IVI 스크린 3D 모형
+        const iviPanel = new THREE.Mesh(
+          new THREE.PlaneGeometry(0.7, 0.4),
+          new THREE.MeshBasicMaterial({ color: 0x38bdf8, side: THREE.DoubleSide })
+        );
+        iviPanel.position.set(0, 1.18, 0.42);
+        carGroup.add(iviPanel);
+
+        // 바퀴 4개
+        const wheelGeo = new THREE.CylinderGeometry(0.37, 0.37, 0.25, 24);
+        wheelGeo.rotateZ(Math.PI / 2);
+        const wheelMat = new THREE.MeshStandardMaterial({ color: 0x090d16, roughness: 0.65 });
+        [
+          [-1.04, 0.37, 1.38],
+          [1.04, 0.37, 1.38],
+          [-1.04, 0.37, -1.38],
+          [1.04, 0.37, -1.38],
+        ].forEach(([x, y, z]) => {
+          const w = new THREE.Mesh(wheelGeo, wheelMat);
+          w.position.set(x, y, z);
+          carGroup.add(w);
+        });
+
+        const clickableMeshes = [];
+
+        // 1) 운전석 도어 (좌측 +X, 앞쪽 힌지 피벗 Z = +0.82)
+        const driverPivot = new THREE.Group();
+        driverPivot.position.set(1.02, 1.04, 0.82);
+        carGroup.add(driverPivot);
+
+        const driverDoorMesh = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.66, 1.32), doorMatDriver);
+        driverDoorMesh.position.set(0, 0, -0.66);
+        driverDoorMesh.userData = { target: 'driverDoor' };
+        driverPivot.add(driverDoorMesh);
+
+        const driverGlass = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.42, 1.22), cabinMat);
+        driverGlass.position.set(0, 0.52, -0.66);
+        driverGlass.userData = { target: 'driverDoor' };
+        driverPivot.add(driverGlass);
+        clickableMeshes.push(driverDoorMesh, driverGlass);
+
+        // 2) 조수석 도어 (우측 -X, 앞쪽 힌지 피벗 Z = +0.82)
+        const passengerPivot = new THREE.Group();
+        passengerPivot.position.set(-1.02, 1.04, 0.82);
+        carGroup.add(passengerPivot);
+
+        const passengerDoorMesh = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.66, 1.32), doorMatPassenger);
+        passengerDoorMesh.position.set(0, 0, -0.66);
+        passengerDoorMesh.userData = { target: 'passengerDoor' };
+        passengerPivot.add(passengerDoorMesh);
+
+        const passengerGlass = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.42, 1.22), cabinMat);
+        passengerGlass.position.set(0, 0.52, -0.66);
+        passengerGlass.userData = { target: 'passengerDoor' };
+        passengerPivot.add(passengerGlass);
+        clickableMeshes.push(passengerDoorMesh, passengerGlass);
+
+        // 3) 트렁크 테일게이트 (상단 루프 끝 힌지 피벗 Y = 1.74, Z = -1.34)
+        const trunkPivot = new THREE.Group();
+        trunkPivot.position.set(0, 1.74, -1.34);
+        carGroup.add(trunkPivot);
+
+        const trunkMesh = new THREE.Mesh(new THREE.BoxGeometry(1.8, 0.94, 0.12), trunkMat);
+        trunkMesh.position.set(0, -0.44, -0.82);
+        trunkMesh.rotation.x = 0.24;
+        trunkMesh.userData = { target: 'trunk' };
+        trunkPivot.add(trunkMesh);
+        clickableMeshes.push(trunkMesh);
+
+        // 4) 트렁크 후방 장애물 (경고 콘 + 박스 그룹)
+        const obstacleGroup = new THREE.Group();
+        obstacleGroup.position.set(0, 0, -3.15);
+        const coneMat = new THREE.MeshStandardMaterial({
+          color: 0xef4444,
+          emissive: 0x7f1d1d,
+          roughness: 0.4,
+        });
+        const coneMesh = new THREE.Mesh(new THREE.ConeGeometry(0.38, 0.9, 20), coneMat);
+        coneMesh.position.set(-0.45, 0.45, 0);
+        obstacleGroup.add(coneMesh);
+
+        const boxMesh = new THREE.Mesh(
+          new THREE.BoxGeometry(0.75, 0.65, 0.65),
+          new THREE.MeshStandardMaterial({ color: 0xf97316, roughness: 0.5 })
+        );
+        boxMesh.position.set(0.4, 0.325, 0.1);
+        obstacleGroup.add(boxMesh);
+        scene.add(obstacleGroup);
+
+        // 마우스 오빗 및 Raycaster
+        let orbitYaw = 0.62;
+        let orbitPitch = 0.34;
+        let isDragging = false;
+        let downPos = { x: 0, y: 0 };
+
+        const raycaster = new THREE.Raycaster();
+        const pointer = new THREE.Vector2();
+
+        const handlePointerDown = (e) => {
+          isDragging = true;
+          downPos = { x: e.clientX, y: e.clientY };
+        };
+
+        const handlePointerMove = (e) => {
+          if (!isDragging || stateRef.current.cameraMode !== 'EXTERIOR') return;
+          const dx = e.clientX - downPos.x;
+          const dy = e.clientY - downPos.y;
+          orbitYaw -= dx * 0.0055;
+          orbitPitch = Math.max(0.12, Math.min(1.15, orbitPitch + dy * 0.0045));
+          downPos = { x: e.clientX, y: e.clientY };
+        };
+
+        const handlePointerUp = (e) => {
+          const dist = Math.hypot(e.clientX - downPos.x, e.clientY - downPos.y);
+          isDragging = false;
+          if (dist < 6) {
+            const rect = renderer.domElement.getBoundingClientRect();
+            pointer.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
+            pointer.y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
+            raycaster.setFromCamera(pointer, camera);
+            const hits = raycaster.intersectObjects(clickableMeshes, false);
+            if (hits.length > 0 && hits[0].object.userData?.target) {
+              onDoorClickRef.current?.(hits[0].object.userData.target);
+            }
+          }
+        };
+
+        const domEl = renderer.domElement;
+        domEl.addEventListener('pointerdown', handlePointerDown);
+        window.addEventListener('pointermove', handlePointerMove);
+        window.addEventListener('pointerup', handlePointerUp);
+
+        const targetPos = new THREE.Vector3(4.5, 2.5, 5.2);
+        const targetLook = new THREE.Vector3(0, 0.9, 0);
+        const lookMat = new THREE.Matrix4();
+        const targetQuat = new THREE.Quaternion();
+        const upVec = new THREE.Vector3(0, 1, 0);
+
+        camera.position.copy(targetPos);
+        camera.lookAt(targetLook);
+
+        const clock = new THREE.Clock();
+        let rafId = null;
+
+        const animate = () => {
+          rafId = requestAnimationFrame(animate);
+          const dt = Math.min(clock.getDelta(), 0.1);
+          const {
+            vehicleState: vs,
+            scenarioState: ss,
+            connectionState: cs,
+            cameraMode: cm,
+            reducedMotion: rm,
+          } = stateRef.current;
+
+          const unknownOrDisconnected = !cs.connected || !cs.snapshotReceived;
+          const doors = vs.doors || {};
+
+          // 도어 목표 회전각 계산
+          const targetDriverY = !unknownOrDisconnected && doors.driverDoor === 'OPEN' ? Math.PI / 2.75 : 0;
+          const targetPassY = !unknownOrDisconnected && doors.passengerDoor === 'OPEN' ? -Math.PI / 2.75 : 0;
+          const targetTrunkX = !unknownOrDisconnected && doors.trunk === 'OPEN' ? -Math.PI / 2.5 : 0;
+
+          // 프레임 시간(dt) 기반 보간 (모션 감소 시 즉시 반영)
+          const doorFactor = rm ? 1.0 : 1 - Math.exp(-8.5 * dt);
+          driverPivot.rotation.y = THREE.MathUtils.lerp(driverPivot.rotation.y, targetDriverY, doorFactor);
+          passengerPivot.rotation.y = THREE.MathUtils.lerp(passengerPivot.rotation.y, targetPassY, doorFactor);
+          trunkPivot.rotation.x = THREE.MathUtils.lerp(trunkPivot.rotation.x, targetTrunkX, doorFactor);
+
+          // 도어 색상 피드백 (열림 시 앰버 강조, 미확인 시 슬레이트)
+          doorMatDriver.color.setHex(
+            unknownOrDisconnected ? 0x334155 : doors.driverDoor === 'OPEN' ? 0xd97706 : 0x253b59
+          );
+          doorMatPassenger.color.setHex(
+            unknownOrDisconnected ? 0x334155 : doors.passengerDoor === 'OPEN' ? 0xd97706 : 0x253b59
+          );
+          trunkMat.color.setHex(
+            unknownOrDisconnected ? 0x334155 : doors.trunk === 'OPEN' ? 0x10b981 : 0x294263
+          );
+
+          // 픽업 구역(A-3) 및 후방 장애물 가시성 업데이트
+          const zoneActive = !unknownOrDisconnected && Boolean(ss.pickupZoneConfirmed);
+          zoneBorderMat.color.setHex(zoneActive ? 0x10b981 : 0x475569);
+          zonePadMat.color.setHex(zoneActive ? 0x10b981 : 0x334155);
+          zonePadMat.opacity = zoneActive ? 0.16 : 0.05;
+
+          obstacleGroup.visible = !unknownOrDisconnected && Boolean(vs.rearObstacle);
+
+          // 카메라 모드별 목표 위치 및 Quaternion SLERP
+          if (cm === 'IVI_FOCUS') {
+            targetPos.set(0, 1.32, -0.35);
+            targetLook.set(0, 1.16, 0.55);
+          } else if (cm === 'TRUNK_HANDOFF') {
+            targetPos.set(-2.55, 2.05, -4.75);
+            targetLook.set(0, 1.05, -1.65);
+          } else {
+            const radius = 6.3;
+            targetPos.set(
+              Math.sin(orbitYaw) * Math.cos(orbitPitch) * radius,
+              Math.sin(orbitPitch) * radius + 0.55,
+              Math.cos(orbitYaw) * Math.cos(orbitPitch) * radius
+            );
+            targetLook.set(0, 0.9, 0);
+          }
+
+          const camFactor = rm ? 1.0 : 1 - Math.exp(-6.5 * dt);
+          camera.position.lerp(targetPos, camFactor);
+          lookMat.lookAt(camera.position, targetLook, upVec);
+          targetQuat.setFromRotationMatrix(lookMat);
+          camera.quaternion.slerp(targetQuat, camFactor);
+
+          renderer.render(scene, camera);
+        };
+
+        animate();
+
+        const handleResize = () => {
+          if (!container) return;
+          camera.aspect = container.clientWidth / Math.max(container.clientHeight, 1);
+          camera.updateProjectionMatrix();
+          renderer.setSize(container.clientWidth, container.clientHeight);
+        };
+        window.addEventListener('resize', handleResize);
+
+        return () => {
+          if (rafId) cancelAnimationFrame(rafId);
+          window.removeEventListener('resize', handleResize);
+          domEl.removeEventListener('pointerdown', handlePointerDown);
+          window.removeEventListener('pointermove', handlePointerMove);
+          window.removeEventListener('pointerup', handlePointerUp);
+          renderer.dispose();
+        };
+      }, []);
+
+      // WebGL 사용 불가 시 2D 상태 다이어그램 폴백 뷰
+      if (!webglAvailable) {
+        const doors = vehicleState.doors || {};
+        return (
+          <div className="w-full h-full flex flex-col items-center justify-center bg-slate-950 p-6 border border-slate-800 rounded-xl">
+            <p className="text-xs font-semibold text-amber-400 mb-3">
+              WebGL을 사용할 수 없는 환경입니다 — 2D 차량 상태 폴백 뷰로 표시합니다.
+            </p>
+            <div className="grid grid-cols-3 gap-4 max-w-lg w-full text-center text-xs">
+              <button
+                onClick={() => onDoorMeshClick('driverDoor')}
+                className="p-4 rounded-xl border border-slate-700 bg-slate-900"
+              >
+                <div className="text-slate-400">운전석 도어</div>
+                <div className="text-sm font-bold mt-1">{doors.driverDoor}</div>
+              </button>
+              <button
+                onClick={() => onDoorMeshClick('trunk')}
+                className="p-4 rounded-xl border border-slate-700 bg-slate-900"
+              >
+                <div className="text-slate-400">트렁크(테일게이트)</div>
+                <div className="text-sm font-bold mt-1">{doors.trunk}</div>
+              </button>
+              <button
+                onClick={() => onDoorMeshClick('passengerDoor')}
+                className="p-4 rounded-xl border border-slate-700 bg-slate-900"
+              >
+                <div className="text-slate-400">조수석 도어</div>
+                <div className="text-sm font-bold mt-1">{doors.passengerDoor}</div>
+              </button>
+            </div>
+          </div>
+        );
+      }
+
+      return (
+        <div className="relative w-full h-full overflow-hidden rounded-xl border border-slate-800 bg-slate-950">
+          <div
+            ref={mountRef}
+            className="w-full h-full cursor-grab active:cursor-grabbing"
+            aria-label="3D 차량 상태 및 트렁크 인계 시뮬레이션 캔버스"
+          />
+
+          {/* 3D 뷰 오버레이: 카메라 모드 전환 버튼 */}
+          <div className="absolute top-3 left-3 flex flex-wrap items-center gap-1.5 z-10">
+            {[
+              { id: 'EXTERIOR', label: '차량 전체 외관 뷰', keyHint: '1' },
+              { id: 'IVI_FOCUS', label: 'IVI 집중 뷰', keyHint: '2' },
+              { id: 'TRUNK_HANDOFF', label: '트렁크 인계 뷰', keyHint: '3' },
+            ].map((m) => (
+              <button
+                key={m.id}
+                type="button"
+                onClick={() => setCameraMode(m.id)}
+                className={`px-2.5 py-1.5 rounded-lg text-xs font-semibold border transition flex items-center gap-1.5 ${
+                  cameraMode === m.id
+                    ? 'bg-sky-600 border-sky-400 text-white shadow'
+                    : 'bg-slate-900/85 border-slate-700 text-slate-300 hover:bg-slate-800'
+                }`}
+              >
+                <span>{m.label}</span>
+                <kbd className="px-1 py-0.2 text-[10px] rounded bg-slate-950/80 border border-slate-700">
+                  {m.keyHint}
+                </kbd>
+              </button>
+            ))}
+          </div>
+
+          {/* 3D 뷰 하단 상태 요약 배지 */}
+          <div className="absolute bottom-3 left-3 right-3 flex flex-wrap items-center justify-between gap-2 px-3 py-2 rounded-lg bg-slate-900/85 border border-slate-800 backdrop-blur-sm text-xs">
+            <div className="flex flex-wrap items-center gap-3">
+              <span>
+                기어:{' '}
+                <strong className="text-sky-400">
+                  {!connectionState.connected || !connectionState.snapshotReceived
+                    ? 'UNKNOWN'
+                    : vehicleState.gear}
+                </strong>
+              </span>
+              <span>
+                차속:{' '}
+                <strong className="text-sky-400">
+                  {!connectionState.connected || !connectionState.snapshotReceived
+                    ? 'UNKNOWN'
+                    : `${vehicleState.speedKph} km/h`}
+                </strong>
+              </span>
+              <span>
+                픽업구역(A-3):{' '}
+                <strong className={scenarioState.pickupZoneConfirmed ? 'text-emerald-400' : 'text-amber-400'}>
+                  {scenarioState.pickupZoneConfirmed ? '확인됨' : '미확인'}
+                </strong>
+              </span>
+              <span>
+                후방장애물:{' '}
+                <strong className={vehicleState.rearObstacle ? 'text-rose-400' : 'text-emerald-400'}>
+                  {vehicleState.rearObstacle ? '감지됨(차단)' : '없음(CLEAR)'}
+                </strong>
+              </span>
+            </div>
+            <span className="text-[11px] text-slate-400">
+              도어·트렁크 3D 메쉬 클릭 시 명령 요청 전송
+            </span>
+          </div>
+        </div>
+      );
+    }
+
+    // ============================================================================
+    // 6. 메인 시뮬레이터 애플리케이션
+    // ============================================================================
+    function App() {
+      // 실행 모드: 'WEB_DEMO' (독립 웹 데모) | 'EXTERNAL_BRIDGE' (외부 브리지 연결)
+      const [mode, setMode] = useState('WEB_DEMO');
+      const [cameraMode, setCameraMode] = useState('EXTERIOR');
+      const [reducedMotion, setReducedMotion] = useState(() =>
+        window.matchMedia ? window.matchMedia('(prefers-reduced-motion: reduce)').matches : false
+      );
+
+      // IVI 표시 모드: 'BUILTIN' (자체 포함 CurbLink 웹 화면) | 'IFRAME' (외부 웹 URL) | 'APK_MIRROR_INFO' (외부 AAOS 에뮬레이터 연결 안내)
+      const [iviDisplayType, setIviDisplayType] = useState('BUILTIN');
+      const [iframeUrlInput, setIframeUrlInput] = useState('');
+      const [activeIframeUrl, setActiveIframeUrl] = useState('');
+      const [allowedOriginInput, setAllowedOriginInput] = useState(window.location.origin || 'http://localhost:8000');
+      const [urlError, setUrlError] = useState('');
+
+      // WebSocket 설정
+      const [wsUrlInput, setWsUrlInput] = useState(DEFAULT_WS_URL);
+      const [wsStatusText, setWsStatusText] = useState('연결되지 않음 (WebSocket 미연결)');
+
+      // TTL 설정 (1초 / 3초 기본 분리)
+      const [ttlConfig, setTtlConfig] = useState({
+        vehicleTtlMs: DEFAULT_VEHICLE_TTL_MS,
+        sensorTtlMs: DEFAULT_SENSOR_TTL_MS,
+      });
+
+      // 센서 만료 시뮬레이션 스위치 (켜면 센서 갱신 중단하여 3초 뒤 실제 만료 발생)
+      const [freezeSensorStream, setFreezeSensorStream] = useState(false);
+
+      // 현재 시각 (데이터 신선도 실시간 계산용)
+      const [nowMs, setNowMs] = useState(() => Date.now());
+
+      // 연결 상태
+      const [connectionState, setConnectionState] = useState({
+        connected: true,
+        snapshotReceived: true,
+        sessionId: createId('sess'),
+        lastHeartbeatAt: Date.now(),
+        lastSequence: 0,
+      });
+
+      // 차량 물리/센서 상태
+      const [vehicleState, setVehicleState] = useState(() => {
+        const t = Date.now();
+        return {
+          sequence: 1,
+          speedKph: 0,
+          gear: 'P',
+          uxRestricted: false,
+          doors: {
+            driverDoor: 'CLOSED',
+            passengerDoor: 'CLOSED',
+            trunk: 'CLOSED',
+          },
+          rearObstacle: false,
+          vehicleDataValid: true,
+          sensorDataValid: true,
+          oemControlAllowed: true,
+          lastVehicleRxAt: t,
+          lastSensorRxAt: t,
+        };
+      });
+
+      // 시나리오/주문/배려 픽업 상태
+      const [scenarioState, setScenarioState] = useState({
+        orderId: 'ORD-2026-A3',
+        orderItemsSummary: '친환경 우유 외 4건 (28,500원)',
+        orderReady: true,
+        pickupZoneConfirmed: true,
+        otpVerified: true,
+        carePrefs: {
+          waitInVehicle: false,
+          loadingHelp: false,
+          extraPrepTime: false,
+        },
+        merchantResponse: 'PENDING', // 'PENDING' | 'ACCEPTED' | 'DECLINED'
+        customerReadyConfirmed: false,
+        invalidationNotice: '',
+        handoffCompleted: false,
+      });
+
+      // 명령 처리 및 마지막 차단/승인 결과
+      const [commandStatus, setCommandStatus] = useState({
+        pendingRequestId: null,
+        lastVerdict: null, // 'APPROVED' | 'BLOCKED' | 'UNCONFIRMED_TIMEOUT' | 'WAITING_EXTERNAL'
+        lastMessage: '대기 중 — 안전 조건을 확인하고 트렁크 열기를 요청하세요.',
+        reasonCodes: [],
+      });
+
+      // 발표용 자동 시나리오 재생 상태
+      const [autoPlayState, setAutoPlayState] = useState({
+        playing: false,
+        paused: false,
+        currentStep: 0,
+        simulatedInputBanner: false,
+        voiceDialog: [],
+        narration: '',
+      });
+
+      // 접근성 알림(aria-live) 및 이벤트 로그 (최대 60개)
+      const [ariaAnnouncement, setAriaAnnouncement] = useState('');
+      const [eventLogs, setEventLogs] = useState([]);
+
+      // Refs
+      const iframeRef = useRef(null);
+      const bcRef = useRef(null);
+      const wsRef = useRef(null);
+      const seenMessageIdsRef = useRef(new Set());
+      const processedRequestIdsRef = useRef(new Set());
+      const receivedStateRef = useRef({sessionId:null, sequence:-1});
+      const commandTimeoutRef = useRef(null);
+      const stateRef = useRef({
+        mode,
+        vehicleState,
+        scenarioState,
+        connectionState,
+        ttlConfig,
+        freezeSensorStream,
+        allowedOriginInput,
+      });
+
+      useEffect(() => {
+        stateRef.current = {
+          mode,
+          vehicleState,
+          scenarioState,
+          connectionState,
+          ttlConfig,
+          freezeSensorStream,
+          allowedOriginInput,
+        };
+      }, [mode, vehicleState, scenarioState, connectionState, ttlConfig, freezeSensorStream, allowedOriginInput]);
+
+      // 안전 로그 추가 헬퍼 (최근 MAX_LOG_COUNT개만 유지)
+      const appendLog = useCallback((category, summary, detailObj = null) => {
+        const entry = {
+          id: createId('log'),
+          time: new Date().toLocaleTimeString('ko-KR', { hour12: false }),
+          category,
+          summary: String(summary),
+          detail: detailObj ? JSON.stringify(detailObj) : '',
+        };
+        setEventLogs((prev) => [entry, ...prev.slice(0, MAX_LOG_COUNT - 1)]);
+      }, []);
+
+      const announce = useCallback((msg) => {
+        setAriaAnnouncement(String(msg));
+      }, []);
+
+      // 중복 messageId 방지 (크기 제한)
+      const checkAndRecordMessageId = useCallback((messageId) => {
+        const set = seenMessageIdsRef.current;
+        if (set.has(messageId)) return false;
+        set.add(messageId);
+        if (set.size > MAX_SEEN_IDS) {
+          const first = set.values().next().value;
+          set.delete(first);
+        }
+        return true;
+      }, []);
+
+      // ============================================================================
+      // 7. 배려 픽업 준비 확인 자동 무효화 감시
+      // ============================================================================
+      useEffect(() => {
+        if (mode === 'EXTERNAL_BRIDGE' || !scenarioState.customerReadyConfirmed) return;
+
+        let invalidateReason = '';
+        if (vehicleState.gear !== 'P') {
+          invalidateReason = 'P단 이탈로 인해 고객 준비 확인이 무효화되었습니다.';
+        } else if (vehicleState.uxRestricted) {
+          invalidateReason = '주행 중 UX 제한 활성화로 인해 고객 준비 확인이 무효화되었습니다.';
+        } else if (vehicleState.speedKph > 0) {
+          invalidateReason = '차량 이동(속도 발생)으로 인해 고객 준비 확인이 무효화되었습니다.';
+        } else if (scenarioState.merchantResponse === 'DECLINED') {
+          invalidateReason = '매장 지원 거절로 인해 고객 준비 확인이 무효화되었습니다.';
+        }
+
+        if (invalidateReason) {
+          setScenarioState((prev) => ({
+            ...prev,
+            customerReadyConfirmed: false,
+            invalidationNotice: invalidateReason,
+          }));
+          appendLog('SAFETY_INVALIDATE', invalidateReason);
+          announce(invalidateReason);
+        }
+      }, [
+        vehicleState.gear,
+        vehicleState.uxRestricted,
+        vehicleState.speedKph,
+        scenarioState.merchantResponse,
+        scenarioState.customerReadyConfirmed,
+        appendLog,
+        announce,
+      ]);
+
+      // ============================================================================
+      // 8. 주기적 타이머 (150ms UI 시계 & WEB_DEMO 모드 하트비트/신선도 갱신)
+      // ============================================================================
+      useEffect(() => {
+        const timer = setInterval(() => {
+          const now = Date.now();
+          setNowMs(now);
+
+          const {
+            mode: currentMode,
+            connectionState: cs,
+            freezeSensorStream: freezeSensor,
+          } = stateRef.current;
+
+          // 독립 웹 데모 모드이고 연결 중일 때 주기적으로 데이터 신선도 타임스탬프 갱신
+          if (currentMode === 'WEB_DEMO' && cs.connected && cs.snapshotReceived) {
+            setVehicleState((prev) => ({
+              ...prev,
+              lastVehicleRxAt: prev.vehicleDataValid ? now : prev.lastVehicleRxAt,
+              lastSensorRxAt: !freezeSensor && prev.sensorDataValid ? now : prev.lastSensorRxAt,
+            }));
+          }
+        }, 200);
+
+        return () => clearInterval(timer);
+      }, []);
+
+      // ============================================================================
+      // 9. 단축키 지원 (입력 필드 포커스 시 비활성화)
+      // ============================================================================
+      useEffect(() => {
+        const handleKeyDown = (e) => {
+          const tag = (e.target && e.target.tagName) || '';
+          if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || e.target?.isContentEditable) {
+            return;
+          }
+          if (e.key === '1') setCameraMode('EXTERIOR');
+          else if (e.key === '2') setCameraMode('IVI_FOCUS');
+          else if (e.key === '3') setCameraMode('TRUNK_HANDOFF');
+        };
+        window.addEventListener('keydown', handleKeyDown);
+        return () => window.removeEventListener('keydown', handleKeyDown);
+      }, []);
+
+      // ============================================================================
+      // 10. 외부 통신 전송 어댑터 (postMessage / BroadcastChannel / WebSocket)
+      // ============================================================================
+      const sendProtocolEnvelope = useCallback(
+        (type, payload, targetChannel = 'all') => {
+          const { connectionState: cs, allowedOriginInput: allowedOrigin } = stateRef.current;
+          const envelope = {
+            protocol: PROTOCOL_VERSION,
+            messageId: createId('msg'),
+            source: 'simulator',
+            sessionId: cs.sessionId,
+            type,
+            timestamp: Date.now(),
+            payload,
+          };
+
+          checkAndRecordMessageId(envelope.messageId);
+
+          // 1) iframe postMessage (허용된 출처만 사용, '*' 기본 사용 금지)
+          if (
+            (targetChannel === 'all' || targetChannel === 'iframe') &&
+            iframeRef.current &&
+            iframeRef.current.contentWindow &&
+            allowedOrigin &&
+            allowedOrigin !== '*'
+          ) {
+            try {
+              iframeRef.current.contentWindow.postMessage(envelope, allowedOrigin);
+            } catch (err) {
+              appendLog('TRANSPORT_WARN', `postMessage 전송 실패 (${err.message})`);
+            }
+          }
+
+          // 2) BroadcastChannel('vehicle-bridge')
+          if ((targetChannel === 'all' || targetChannel === 'bc') && bcRef.current) {
+            try {
+              bcRef.current.postMessage(envelope);
+            } catch (err) {
+              appendLog('TRANSPORT_WARN', `BroadcastChannel 전송 실패`);
+            }
+          }
+
+          // 3) WebSocket
+          if (
+            (targetChannel === 'all' || targetChannel === 'ws') &&
+            wsRef.current &&
+            wsRef.current.readyState === WebSocket.OPEN
+          ) {
+            wsRef.current.send(JSON.stringify(envelope));
+          }
+
+          return envelope;
+        },
+        [appendLog, checkAndRecordMessageId]
+      );
+
+      // ============================================================================
+      // 11. 수신 메시지 처리 함수 (handleIncomingProtocolMessage)
+      // ============================================================================
+      useEffect(() => {
+        if (mode !== 'EXTERNAL_BRIDGE') return;
+        const timer = setInterval(() => {
+          if (stateRef.current.connectionState.snapshotReceived) sendProtocolEnvelope('HEARTBEAT', {alive:true}, 'ws');
+        }, 1000);
+        return () => clearInterval(timer);
+      }, [mode, sendProtocolEnvelope]);
+
+      const applyIncomingVehicleState = useCallback(
+        (payload, sessionId) => {
+          const now = Date.now();
+          const received = receivedStateRef.current;
+          if (received.sessionId === sessionId && payload.sequence <= received.sequence) return;
+          receivedStateRef.current = {sessionId, sequence:payload.sequence};
+          setConnectionState(prev => ({...prev, connected:true, snapshotReceived:true,
+            sessionId, lastSequence:payload.sequence, lastHeartbeatAt:now}));
+          setVehicleState((prev) => {
+            return {
+              ...prev,
+              sequence: payload.sequence,
+              speedKph: payload.speedKph,
+              gear: payload.gear,
+              uxRestricted: payload.uxRestricted,
+              doors: { ...payload.doors },
+              rearObstacle: Boolean(payload.rearObstacle),
+              vehicleDataValid: Boolean(payload.vehicleDataValid),
+              sensorDataValid: Boolean(payload.sensorDataValid),
+              oemControlAllowed: Boolean(payload.oemControlAllowed),
+              lastVehicleRxAt: Boolean(payload.vehicleDataValid) ? now : prev.lastVehicleRxAt,
+              lastSensorRxAt: Boolean(payload.sensorDataValid) ? now : prev.lastSensorRxAt,
+            };
+          });
+        },
+        [appendLog]
+      );
+
+      const applyIncomingCommandResult = useCallback(
+        (payload) => {
+          if (commandTimeoutRef.current) {
+            clearTimeout(commandTimeoutRef.current);
+            commandTimeoutRef.current = null;
+          }
+          if (payload.accepted) {
+            setCommandStatus({
+              pendingRequestId: null,
+              lastVerdict: 'APPROVED',
+              lastMessage: '명령 승인 수신 완료 (실제 개방은 후속 VEHICLE_STATE 수신 후 반영됩니다)',
+              reasonCodes: [],
+            });
+            appendLog('COMMAND_RESULT', `명령 승인됨 (req: ${payload.requestId}) — 후속 차량 상태 대기`, payload);
+            announce('트렁크 열기 명령이 승인되었습니다.');
+          } else {
+            const reasonsKo = (payload.reasonCodes || []).map((c) => REASON_LABELS_KO[c] || c);
+            setCommandStatus({
+              pendingRequestId: null,
+              lastVerdict: 'BLOCKED',
+              lastMessage: `명령 거부됨: ${reasonsKo.join(', ') || '안전 조건 미충족'}`,
+              reasonCodes: payload.reasonCodes || [],
+            });
+            appendLog('COMMAND_RESULT', `명령 거부됨: ${reasonsKo.join(', ')}`, payload);
+            announce(`트렁크 열기 차단: ${reasonsKo.join(', ')}`);
+          }
+        },
+        [appendLog, announce]
+      );
+
+      const handleIncomingProtocolMessage = useCallback(
+        (raw, transportLabel) => {
+          const check = validateProtocolMessage(raw);
+          if (!check.valid) {
+            appendLog('VALIDATION_DROP', `[${transportLabel}] 유효하지 않은 메시지 거부: ${check.error}`);
+            return;
+          }
+          if (raw.source === 'simulator') return;
+          if (stateRef.current.mode === 'EXTERNAL_BRIDGE' &&
+              (transportLabel !== 'WebSocket' || raw.source !== 'android-bridge')) return;
+          if (stateRef.current.mode !== 'EXTERNAL_BRIDGE' && transportLabel === 'WebSocket') return;
+          if (!checkAndRecordMessageId(raw.messageId)) return;
+
+          const { type, payload, sessionId } = raw;
+
+          if (type === 'ERROR') {
+            appendLog('BRIDGE_ERROR', String(payload.code || 'UNKNOWN_ERROR'));
+            announce('브리지 요청 거부: ' + String(payload.code || 'UNKNOWN_ERROR'));
+          } else if (type === 'HELLO' || type === 'HEARTBEAT') {
+            setConnectionState((prev) => ({
+              ...prev,
+              connected: true,
+              sessionId: sessionId || prev.sessionId,
+              lastHeartbeatAt: Date.now(),
+              lastSequence: sessionId !== prev.sessionId ? -1 : prev.lastSequence,
+            }));
+            appendLog(type, `[${transportLabel}] ${raw.source} 세션(${sessionId}) 수신`);
+          } else if (type === 'VEHICLE_STATE') {
+            applyIncomingVehicleState(payload, sessionId);
+            appendLog('VEHICLE_STATE', `[${transportLabel}] seq:${payload.sequence} gear:${payload.gear} trunk:${payload.doors.trunk}`);
+          } else if (type === 'SCENARIO_STATE') {
+            setScenarioState((prev) => ({
+              ...prev,
+              ...payload,
+              carePrefs: payload.carePrefs ? { ...prev.carePrefs, ...payload.carePrefs } : prev.carePrefs,
+            }));
+            appendLog('SCENARIO_STATE', `[${transportLabel}] 시나리오 상태 동기화 수신`);
+          } else if (type === 'COMMAND_RESULT') {
+            applyIncomingCommandResult(payload);
+          } else if (type === 'COMMAND_REQUEST') {
+            // 외부 IVI 웹앱에서 시뮬레이터로 보낸 명령 요청 처리 (중복 requestId는 handleDoorCommandRequest에서 차단)
+            handleDoorCommandRequest(payload.target, payload.action, `외부 IVI 앱 요청 (${transportLabel})`, payload.requestId);
+          }
+        },
+        [appendLog, checkAndRecordMessageId, applyIncomingVehicleState, applyIncomingCommandResult]
+      );
+
+      // BroadcastChannel 및 window.postMessage 리스너 등록
+      useEffect(() => {
+        let bc = null;
+        try {
+          bc = new BroadcastChannel('vehicle-bridge');
+          bcRef.current = bc;
+          bc.onmessage = (e) => {
+            handleIncomingProtocolMessage(e.data, 'BroadcastChannel');
+          };
+        } catch (err) {
+          appendLog('BC_INIT', 'BroadcastChannel을 사용할 수 없는 환경입니다.');
+        }
+
+        const onWindowMessage = (e) => {
+          const allowedOrigin = stateRef.current.allowedOriginInput;
+          if (!allowedOrigin || e.origin !== allowedOrigin) return;
+          if (!iframeRef.current || e.source !== iframeRef.current.contentWindow) return;
+          handleIncomingProtocolMessage(e.data, 'postMessage');
+        };
+
+        window.addEventListener('message', onWindowMessage);
+        return () => {
+          window.removeEventListener('message', onWindowMessage);
+          if (bc) bc.close();
+        };
+      }, [handleIncomingProtocolMessage, appendLog]);
+
+      // WebSocket 수동 연결/해제 함수
+      const connectWebSocket = useCallback(() => {
+        if (stateRef.current.mode !== 'EXTERNAL_BRIDGE') return;
+        if (wsRef.current) {
+          wsRef.current.close();
+          wsRef.current = null;
+        }
+        try {
+          setWsStatusText(`연결 시도 중 (${wsUrlInput})...`);
+          receivedStateRef.current = {sessionId:null,sequence:-1};
+          const ws = new WebSocket(wsUrlInput);
+          wsRef.current = ws;
+
+          ws.onopen = () => {
+            if (wsRef.current !== ws) return;
+            const newSess = createId('sess-ws');
+            setWsStatusText(`연결됨 (${wsUrlInput})`);
+            // 연결 직후에는 상태를 UNKNOWN으로 두고 유효한 스냅샷 수신 후 제어 허용
+            setConnectionState({
+              connected: true,
+              snapshotReceived: false,
+              sessionId: newSess,
+              lastHeartbeatAt: Date.now(),
+              lastSequence: 0,
+            });
+            setVehicleState((prev) => ({
+              ...prev,
+              gear: 'UNKNOWN',
+              doors: { driverDoor: 'UNKNOWN', passengerDoor: 'UNKNOWN', trunk: 'UNKNOWN' },
+            }));
+            sendProtocolEnvelope('HELLO', { client: 'pleos-curblink-3d-shell', requestSnapshot: true }, 'ws');
+            appendLog('WS_OPEN', `WebSocket 브리지 연결됨 (${wsUrlInput}) — 초기 상태 UNKNOWN, 스냅샷 대기`);
+          };
+
+          ws.onmessage = (e) => {
+            if (wsRef.current !== ws) return;
+            try {
+              const parsed = JSON.parse(e.data);
+              handleIncomingProtocolMessage(parsed, 'WebSocket');
+            } catch (err) {
+              appendLog('WS_PARSE_ERR', 'WebSocket JSON 파싱 실패');
+            }
+          };
+
+          ws.onerror = () => {
+            setWsStatusText('연결되지 않음 (서버 응답 없음)');
+          };
+
+          ws.onclose = () => {
+            if (wsRef.current !== ws) return;
+            setWsStatusText('연결되지 않음 (연결 종료)');
+            if (stateRef.current.mode === 'EXTERNAL_BRIDGE') {
+              setConnectionState((prev) => ({
+                ...prev,
+                connected: false,
+                snapshotReceived: false,
+              }));
+              setVehicleState((prev) => ({
+                ...prev,
+                gear: 'UNKNOWN',
+                doors: { driverDoor: 'UNKNOWN', passengerDoor: 'UNKNOWN', trunk: 'UNKNOWN' },
+              }));
+              appendLog('WS_CLOSE', '외부 브리지 연결 해제됨 — 차량 상태 UNKNOWN 전환 및 제어 차단');
+            }
+          };
+        } catch (err) {
+          setWsStatusText(`연결 오류: ${err.message}`);
+        }
+      }, [wsUrlInput, sendProtocolEnvelope, handleIncomingProtocolMessage, appendLog]);
+
+      // 언마운트 시 타이머/소켓 정리
+      useEffect(() => {
+        return () => {
+          if (wsRef.current) wsRef.current.close();
+          if (commandTimeoutRef.current) clearTimeout(commandTimeoutRef.current);
+        };
+      }, []);
+
+      // ============================================================================
+      // 12. 명령 요청 처리 (MockVehicleAdapter vs 외부 브리지 모드 분리)
+      // ============================================================================
+      const handleDoorCommandRequest = useCallback(
+        (target, action, triggerSourceLabel = '사용자 요청', customRequestId = null) => {
+          const reqId = customRequestId || createId('req');
+          if (processedRequestIdsRef.current.has(reqId)) {
+            appendLog('DUPLICATE_REQ', `동일 requestId(${reqId}) 중복 수신 — 차량 동작 반복 차단됨`);
+            return;
+          }
+          processedRequestIdsRef.current.add(reqId);
+          if (processedRequestIdsRef.current.size > MAX_SEEN_IDS) {
+            const oldest = processedRequestIdsRef.current.values().next().value;
+            processedRequestIdsRef.current.delete(oldest);
+          }
+
+          const {
+            mode: currentMode,
+            vehicleState: vs,
+            scenarioState: ss,
+            connectionState: cs,
+            ttlConfig: ttl,
+          } = stateRef.current;
+
+          appendLog('COMMAND_REQUEST', `[${triggerSourceLabel}] ${target} -> ${action} (reqId: ${reqId})`);
+
+          // B. 외부 브리지 모드: 로컬에서 즉시 열지 않고 COMMAND_REQUEST 송신 후 대기
+          if (currentMode === 'EXTERNAL_BRIDGE') {
+            appendLog('APK_AUTHORITY', '고객 승인과 정상 차량 명령은 실제 APK에서 조작하세요.');
+            announce('실제 APK에서 조작하세요.');
+            return;
+          }
+
+          // A. 독립 웹 데모 모드 (내장 MockVehicleAdapter가 안전 판단 및 상태 갱신 수행)
+          const now = Date.now();
+          if (target === 'trunk' && action === 'OPEN') {
+            const evalResult = evaluateTrunkSafety({
+              vehicleState: vs,
+              scenarioState: ss,
+              connectionState: cs,
+              nowMs: now,
+              explicitUserRequest: true,
+              ttlConfig: ttl,
+            });
+
+            if (!evalResult.allowed) {
+              setCommandStatus({
+                pendingRequestId: null,
+                lastVerdict: 'BLOCKED',
+                lastMessage: `트렁크 열기 차단: ${evalResult.reasonsKo.join(' / ')}`,
+                reasonCodes: evalResult.reasonCodes,
+              });
+              sendProtocolEnvelope('COMMAND_RESULT', {
+                requestId: reqId,
+                accepted: false,
+                reasonCodes: evalResult.reasonCodes,
+              });
+              appendLog('SAFETY_BLOCKED', `트렁크 열기 거부됨: ${evalResult.reasonsKo.join(', ')}`, evalResult.reasonCodes);
+              announce(`트렁크 열기 차단됨: ${evalResult.reasonsKo.join(', ')}`);
+              return;
+            }
+
+            // 모든 13개 안전 조건 통과!
+            setCommandStatus({
+              pendingRequestId: null,
+              lastVerdict: 'APPROVED',
+              lastMessage: '13개 안전 인터록 검증 통과 — 트렁크 개방 승인 및 상태 전환 완료',
+              reasonCodes: [],
+            });
+
+            sendProtocolEnvelope('COMMAND_RESULT', {
+              requestId: reqId,
+              accepted: true,
+              reasonCodes: [],
+            });
+
+            setVehicleState((prev) => {
+              const nextSeq = prev.sequence + 1;
+              const nextDoors = { ...prev.doors, trunk: 'OPEN' };
+              sendProtocolEnvelope('VEHICLE_STATE', {
+                sequence: nextSeq,
+                speedKph: prev.speedKph,
+                gear: prev.gear,
+                uxRestricted: prev.uxRestricted,
+                doors: nextDoors,
+                rearObstacle: prev.rearObstacle,
+                vehicleDataValid: prev.vehicleDataValid,
+                sensorDataValid: prev.sensorDataValid,
+                oemControlAllowed: prev.oemControlAllowed,
+              });
+              return {
+                ...prev,
+                sequence: nextSeq,
+                doors: nextDoors,
+                lastVehicleRxAt: Date.now(),
+              };
+            });
+
+            appendLog('TRUNK_OPENED', '안전 조건 재검증 통과 → 트렁크 OPEN 전환');
+            announce('안전 조건이 확인되어 트렁크가 열렸습니다.');
+            return;
+          }
+
+          // 트렁크 닫기 또는 일반 운전석/조수석 도어 개폐 (정차 및 연결 확인)
+          if (!cs.connected || !cs.snapshotReceived || vs.gear !== 'P' || vs.speedKph > 0) {
+            const blockCode = !cs.connected ? 'BRIDGE_DISCONNECTED' : vs.gear !== 'P' ? 'GEAR_NOT_P' : 'SPEED_NON_ZERO';
+            setCommandStatus({
+              pendingRequestId: null,
+              lastVerdict: 'BLOCKED',
+              lastMessage: `도어 조작 차단: ${REASON_LABELS_KO[blockCode]}`,
+              reasonCodes: [blockCode],
+            });
+            appendLog('DOOR_BLOCKED', `${target} ${action} 차단됨 (${REASON_LABELS_KO[blockCode]})`);
+            return;
+          }
+
+          setVehicleState((prev) => {
+            const nextSeq = prev.sequence + 1;
+            const nextDoors = { ...prev.doors, [target]: action === 'OPEN' ? 'OPEN' : 'CLOSED' };
+            return {
+              ...prev,
+              sequence: nextSeq,
+              doors: nextDoors,
+              lastVehicleRxAt: Date.now(),
+            };
+          });
+          appendLog('DOOR_CHANGED', `${target} 상태 ${action} 반영 완료`);
+        },
+        [appendLog, announce, sendProtocolEnvelope]
+      );
+
+      // ============================================================================
+      // 13. 평가자 제어 독 상태 주입 인터페이스 (sendEvaluatorInjection)
+      // ============================================================================
+      const sendEvaluatorInjection = useCallback(
+        (label, vehiclePatch = null, scenarioPatch = null) => {
+          const { mode: currentMode } = stateRef.current;
+
+          if (currentMode === 'EXTERNAL_BRIDGE') {
+            if (scenarioPatch) { appendLog('APK_AUTHORITY', '주문·지원·고객 준비는 실제 APK에서 조작하세요.'); return; }
+            // 외부 브리지 모드에서는 로컬 상태를 임의 확정하지 않고 상태 주입 요청으로 전달
+            sendProtocolEnvelope('EVALUATOR_INJECT', {
+              label,
+              vehiclePatch,
+              scenarioPatch,
+            });
+            appendLog('EVAL_INJECT_REQ', `[평가자 상태 주입 요청 전송] ${label} (외부 브리지 반영 대기)`);
+            return;
+          }
+
+          // 웹 데모 모드에서는 Mock 상태에 즉시 주입하되 "평가자용 상태 주입"으로 명확히 기록
+          const now = Date.now();
+          if (vehiclePatch) {
+            setVehicleState((prev) => {
+              const nextDoors = vehiclePatch.doors ? { ...prev.doors, ...vehiclePatch.doors } : prev.doors;
+              return {
+                ...prev,
+                ...vehiclePatch,
+                doors: nextDoors,
+                sequence: prev.sequence + 1,
+                lastVehicleRxAt:
+                  vehiclePatch.vehicleDataValid === false ? prev.lastVehicleRxAt - 5000 : now,
+                lastSensorRxAt:
+                  vehiclePatch.sensorDataValid === false ? prev.lastSensorRxAt - 5000 : now,
+              };
+            });
+          }
+          if (scenarioPatch) {
+            setScenarioState((prev) => ({
+              ...prev,
+              ...scenarioPatch,
+              carePrefs: scenarioPatch.carePrefs
+                ? { ...prev.carePrefs, ...scenarioPatch.carePrefs }
+                : prev.carePrefs,
+            }));
+          }
+          appendLog('EVAL_INJECT', `[평가자용 상태 주입] ${label} (앱 정상 제어가 아님)`);
+        },
+        [appendLog, sendProtocolEnvelope]
+      );
+
+      // 물품 적재 완료 및 트렁크 닫기 헬퍼
+      const completeLoadingAndCloseTrunk = useCallback(() => {
+        if (stateRef.current.mode === 'EXTERNAL_BRIDGE') {
+          handleDoorCommandRequest('trunk', 'CLOSE', '적재 완료 후 닫기 요청');
+          return;
+        }
+        setVehicleState((prev) => ({
+          ...prev,
+          sequence: prev.sequence + 1,
+          doors: { ...prev.doors, trunk: 'CLOSED' },
+          lastVehicleRxAt: Date.now(),
+        }));
+        setScenarioState((prev) => ({
+          ...prev,
+          handoffCompleted: true,
+        }));
+        setCommandStatus({
+          pendingRequestId: null,
+          lastVerdict: 'APPROVED',
+          lastMessage: '직원 적재 완료 및 트렁크 닫힘 확인 — 물품 수령이 최종 완료되었습니다.',
+          reasonCodes: [],
+        });
+        appendLog('HANDOFF_COMPLETE', '트렁크 CLOSED 확인 및 고객 물품 수령 완료');
+        announce('물품 적재 및 트렁크 닫힘이 확인되어 인계가 완료되었습니다.');
+      }, [handleDoorCommandRequest, appendLog, announce]);
+
+      // ============================================================================
+      // 14. 발표용 자동 시나리오 재생 컨트롤러
+      // ============================================================================
+      useEffect(() => {
+        if (mode === 'EXTERNAL_BRIDGE' || !autoPlayState.playing || autoPlayState.paused) return;
+
+        const stepIndex = autoPlayState.currentStep;
+        if (stepIndex >= PRESENTATION_STEPS.length) {
+          setAutoPlayState((prev) => ({
+            ...prev,
+            playing: false,
+            simulatedInputBanner: false,
+          }));
+          appendLog('SCENARIO_END', '발표용 6단계 자동 시나리오 재생 완료');
+          return;
+        }
+
+        const stepDef = PRESENTATION_STEPS[stepIndex];
+        setCameraMode(stepDef.camera);
+        setAutoPlayState((prev) => ({
+          ...prev,
+          simulatedInputBanner: stepDef.simulatedUserInput,
+          voiceDialog: stepDef.voiceDialog || [],
+          narration: stepDef.narration,
+        }));
+
+        appendLog('SCENARIO_STEP', `${stepDef.title} 시작`);
+        announce(stepDef.title);
+
+        stepDef.apply({
+          setVehicle: (updater) =>
+            setVehicleState((prev) => {
+              const next = typeof updater === 'function' ? updater(prev) : { ...prev, ...updater };
+              return {
+                ...next,
+                sequence: prev.sequence + 1,
+                lastVehicleRxAt: Date.now(),
+                lastSensorRxAt: Date.now(),
+              };
+            }),
+          setScenario: (updater) =>
+            setScenarioState((prev) => (typeof updater === 'function' ? updater(prev) : { ...prev, ...updater })),
+          triggerOpenTrunkRequest: (label) => handleDoorCommandRequest('trunk', 'OPEN', label),
+          completeLoadingAndCloseTrunk,
+        });
+
+        const timer = setTimeout(() => {
+          setAutoPlayState((prev) => ({
+            ...prev,
+            currentStep: prev.currentStep + 1,
+          }));
+        }, stepDef.durationMs);
+
+        return () => clearTimeout(timer);
+      }, [
+        autoPlayState.playing,
+        autoPlayState.paused,
+        autoPlayState.currentStep,
+        appendLog,
+        announce,
+        handleDoorCommandRequest,
+        completeLoadingAndCloseTrunk,
+      ]);
+
+      const startAutoScenario = () => {
+        if (mode === 'EXTERNAL_BRIDGE') { announce('자동 시나리오는 독립 웹 데모 모드에서 실행하세요.'); return; }
+        if (wsRef.current) { const old = wsRef.current; wsRef.current = null; old.close(); }
+        setMode('WEB_DEMO');
+        setFreezeSensorStream(false);
+        setConnectionState((prev) => ({
+          ...prev,
+          connected: true,
+          snapshotReceived: true,
+        }));
+        setAutoPlayState({
+          playing: true,
+          paused: false,
+          currentStep: 0,
+          simulatedInputBanner: false,
+          voiceDialog: [],
+          narration: '',
+        });
+      };
+
+      const resetAll = () => {
+        if (mode === 'EXTERNAL_BRIDGE') { announce('외부 모드는 실제 APK에서 초기화하세요.'); return; }
+        const now = Date.now();
+        setFreezeSensorStream(false);
+        setAutoPlayState({
+          playing: false,
+          paused: false,
+          currentStep: 0,
+          simulatedInputBanner: false,
+          voiceDialog: [],
+          narration: '',
+        });
+        setConnectionState({
+          connected: true,
+          snapshotReceived: true,
+          sessionId: createId('sess'),
+          lastHeartbeatAt: now,
+          lastSequence: 1,
+        });
+        setVehicleState({
+          sequence: 1,
+          speedKph: 0,
+          gear: 'P',
+          uxRestricted: false,
+          doors: { driverDoor: 'CLOSED', passengerDoor: 'CLOSED', trunk: 'CLOSED' },
+          rearObstacle: false,
+          vehicleDataValid: true,
+          sensorDataValid: true,
+          oemControlAllowed: true,
+          lastVehicleRxAt: now,
+          lastSensorRxAt: now,
+        });
+        setScenarioState({
+          orderId: 'ORD-2026-A3',
+          orderItemsSummary: '친환경 우유 외 4건 (28,500원)',
+          orderReady: true,
+          pickupZoneConfirmed: true,
+          otpVerified: true,
+          carePrefs: { waitInVehicle: false, loadingHelp: false, extraPrepTime: false },
+          merchantResponse: 'PENDING',
+          customerReadyConfirmed: false,
+          invalidationNotice: '',
+          handoffCompleted: false,
+        });
+        setCommandStatus({
+          pendingRequestId: null,
+          lastVerdict: null,
+          lastMessage: '초기화 완료 — 모든 상태가 기본 정차(P단) 상태로 복원되었습니다.',
+          reasonCodes: [],
+        });
+        appendLog('RESET', '시뮬레이터 전체 상태 초기화 완료');
+      };
+
+      // 현재 시점 실시간 안전 평가 결과
+      const safetyEval = useMemo(
+        () =>
+          evaluateTrunkSafety({
+            vehicleState,
+            scenarioState,
+            connectionState,
+            nowMs,
+            explicitUserRequest: true,
+            ttlConfig,
+          }),
+        [vehicleState, scenarioState, connectionState, nowMs, ttlConfig]
+      );
+
+      // 주행 중 터치 잠금 여부 (차속 > 0 또는 기어 !== P 또는 UX 제한 활성화)
+      const isTouchLockedByDriving =
+        !connectionState.connected ||
+        !connectionState.snapshotReceived ||
+        vehicleState.speedKph > 0 ||
+        vehicleState.gear !== 'P' ||
+        vehicleState.uxRestricted;
+
+      const careActive = isCareRequested(scenarioState.carePrefs);
+
+      // 고객 배려 픽업 옵션 토글 핸들러 (변경 시 고객 준비 확인 무효화 및 매장 응답 PENDING 전환)
+      const toggleCarePref = (key) => {
+        if (mode === 'EXTERNAL_BRIDGE' || isTouchLockedByDriving) return;
+        setScenarioState((prev) => {
+          const nextPrefs = { ...prev.carePrefs, [key]: !prev.carePrefs[key] };
+          const anySelected = isCareRequested(nextPrefs);
+          return {
+            ...prev,
+            carePrefs: nextPrefs,
+            merchantResponse: anySelected ? 'PENDING' : 'PENDING',
+            customerReadyConfirmed: false,
+            invalidationNotice: prev.customerReadyConfirmed
+              ? '배려 픽업 요청 항목이 변경되어 고객 준비 확인이 초기화되었습니다. 매장 수락 후 다시 확인해주세요.'
+              : prev.invalidationNotice,
+          };
+        });
+        appendLog('CARE_PREF_CHANGE', `배려 픽업 옵션 변경 (${key}) — 준비 확인 초기화`);
+      };
+
+      return (
+        <div className="min-h-screen w-full bg-[#060911] text-slate-100 flex flex-col justify-between p-2 sm:p-3 select-none">
+          {/* 스크린 리더 전용 실시간 상태 알림 영역 */}
+          <div className="sr-only" role="status" aria-live="polite" aria-atomic="true">
+            {ariaAnnouncement}
+          </div>
+
+          {/* 상단 고정 배너: 시뮬레이션 고지 및 모드 전환 */}
+          <header className="w-full max-w-[1840px] mx-auto mb-2 px-4 py-2.5 rounded-xl bg-slate-900/95 border border-slate-800 flex flex-wrap items-center justify-between gap-2 shadow-lg">
+            <div className="flex flex-wrap items-center gap-2.5">
+              <span className="px-2.5 py-1 rounded-md bg-amber-500/20 border border-amber-400/60 text-amber-300 text-xs font-extrabold tracking-wide">
+                시뮬레이션 · 실차/OEM 서비스 미연결
+              </span>
+              <h1 className="text-sm sm:text-base font-bold text-white">
+                Pleos CurbLink — 3D 차량 연동 · 안전 인터록 · 배려 픽업 시뮬레이터
+              </h1>
+              <span className="text-xs text-slate-400 hidden xl:inline">
+                (NHTSA/OEM 공식 인증 제품 아님 · 모든 외부 연동은 시뮬레이션 또는 로컬 브리지)
+              </span>
+            </div>
+
+            {/* 실행 모드 스위치 & 모션 감소 토글 */}
+            <div className="flex flex-wrap items-center gap-2">
+              <div className="flex items-center rounded-lg bg-slate-950 p-1 border border-slate-800 text-xs">
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (wsRef.current) { const old = wsRef.current; wsRef.current = null; old.close(); }
+        setMode('WEB_DEMO');
+                    setConnectionState((prev) => ({
+                      ...prev,
+                      connected: true,
+                      snapshotReceived: true,
+                    }));
+                    appendLog('MODE_SWITCH', '독립 웹 데모 모드(MockVehicleAdapter)로 전환됨');
+                  }}
+                  className={`px-2.5 py-1 rounded-md font-bold transition ${
+                    mode === 'WEB_DEMO'
+                      ? 'bg-sky-600 text-white'
+                      : 'text-slate-400 hover:text-slate-200'
+                  }`}
+                >
+                  A. 독립 웹 데모 모드 (Mock)
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setMode('EXTERNAL_BRIDGE');
+                    setScenarioState(prev => ({...prev, orderId:'APK 연결 대기', orderItemsSummary:'APK 주문 상태 미수신',
+                      orderReady:false, pickupZoneConfirmed:false, otpVerified:false,
+                      carePrefs:{waitInVehicle:false,loadingHelp:false,extraPrepTime:false},
+                      merchantResponse:'PENDING', customerReadyConfirmed:false, handoffCompleted:false}));
+                    setAutoPlayState(prev => ({...prev, playing:false}));
+                    const wsOpen = wsRef.current && wsRef.current.readyState === WebSocket.OPEN;
+                    setConnectionState((prev) => ({
+                      ...prev,
+                      connected: Boolean(wsOpen),
+                      snapshotReceived: false,
+                    }));
+                    setVehicleState((prev) => ({
+                      ...prev,
+                      gear: 'UNKNOWN',
+                      doors: { driverDoor: 'UNKNOWN', passengerDoor: 'UNKNOWN', trunk: 'UNKNOWN' },
+                    }));
+                    appendLog(
+                      'MODE_SWITCH',
+                      '외부 브리지 모드로 전환됨 — 유효한 스냅샷 수신 전까지 UNKNOWN 및 제어 차단'
+                    );
+                  }}
+                  className={`px-2.5 py-1 rounded-md font-bold transition ${
+                    mode === 'EXTERNAL_BRIDGE'
+                      ? 'bg-indigo-600 text-white'
+                      : 'text-slate-400 hover:text-slate-200'
+                  }`}
+                >
+                  B. 외부 브리지 모드 (실제 APK/WS 기준)
+                </button>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => setReducedMotion((prev) => !prev)}
+                aria-pressed={reducedMotion}
+                className={`px-2.5 py-1.5 rounded-lg text-xs font-semibold border transition ${
+                  reducedMotion
+                    ? 'bg-purple-600/30 border-purple-400 text-purple-200'
+                    : 'bg-slate-800 border-slate-700 text-slate-300 hover:bg-slate-700'
+                }`}
+              >
+                모션 감소: {reducedMotion ? '켜짐' : '꺼짐'}
+              </button>
+            </div>
+          </header>
+
+          {/* 자동 시나리오 재생 배너 (고객 입력 자동 재생 고지 포함) */}
+          {(autoPlayState.playing || autoPlayState.narration) && (
+            <div className="w-full max-w-[1840px] mx-auto mb-2 px-4 py-2 rounded-xl bg-indigo-950/90 border border-indigo-500/60 flex flex-wrap items-center justify-between gap-2 text-xs">
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="px-2 py-0.5 rounded bg-indigo-600 text-white font-bold">
+                  {PRESENTATION_STEPS[autoPlayState.currentStep]?.title || '시나리오 완료'}
+                </span>
+                <span className="text-slate-200 font-medium">{autoPlayState.narration}</span>
+              </div>
+              {autoPlayState.simulatedInputBanner && (
+                <span className="px-2.5 py-1 rounded bg-amber-500/20 border border-amber-400 text-amber-200 font-bold">
+                  [고지] 시연 스크립트가 사용자 입력을 재생 중 (실제 서비스는 고객 직접 확인 필수)
+                </span>
+              )}
+            </div>
+          )}
+
+          {/* 메인 16:9 발표용 그리드: 좌측 3D 차량 뷰 + 안전 인터록 패널 / 우측 16:9 IVI 디스플레이 */}
+          <main className="w-full max-w-[1840px] mx-auto flex-1 grid grid-cols-1 lg:grid-cols-12 gap-3 items-stretch">
+            {/* 좌측 영역 (5칸): 3D 차량 뷰 + 13대 안전 인터록 실시간 체크리스트 */}
+            <section className="lg:col-span-5 flex flex-col gap-2.5 min-h-[420px]">
+              <div className="flex-1 min-h-[260px]">
+                <Vehicle3DViewport
+                  vehicleState={vehicleState}
+                  scenarioState={scenarioState}
+                  connectionState={connectionState}
+                  cameraMode={cameraMode}
+                  setCameraMode={setCameraMode}
+                  reducedMotion={reducedMotion}
+                  onDoorMeshClick={(target) => {
+                    const current = vehicleState.doors?.[target];
+                    const nextAction = current === 'OPEN' ? 'CLOSE' : 'OPEN';
+                    handleDoorCommandRequest(target, nextAction, '3D 도어 메쉬 클릭');
+                  }}
+                />
+              </div>
+
+              {/* 단일 안전 판단 함수(13개 조건) 실시간 판정 보드 */}
+              <div className="p-3 rounded-xl bg-slate-900/95 border border-slate-800">
+                <div className="flex items-center justify-between mb-2">
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs font-extrabold tracking-wide text-slate-200">
+                      단일 안전 판단 함수 (트렁크 개방 13대 조건 실시간 검증)
+                    </span>
+                  </div>
+                  <span
+                    className={`px-2 py-0.5 rounded text-xs font-bold ${
+                      safetyEval.canEnableOpenButton
+                        ? 'bg-emerald-500/20 border border-emerald-500/60 text-emerald-300'
+                        : 'bg-rose-500/20 border border-rose-500/60 text-rose-300'
+                    }`}
+                  >
+                    {safetyEval.canEnableOpenButton
+                      ? '사전조건 충족 (열기 요청 가능)'
+                      : `차단 사유 ${safetyEval.preConditionsCodes.length}건`}
+                  </span>
+                </div>
+
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-1.5 text-[11px]">
+                  {safetyEval.checks.map((chk) => (
+                    <div
+                      key={chk.id}
+                      className={`px-2 py-1 rounded border flex items-center justify-between gap-1 ${
+                        chk.passed
+                          ? 'bg-emerald-950/30 border-emerald-800/60 text-emerald-200'
+                          : 'bg-rose-950/40 border-rose-800/70 text-rose-200 font-semibold'
+                      }`}
+                    >
+                      <span className="truncate">{chk.label}</span>
+                      <span className="shrink-0 font-mono text-[10px]">
+                        {chk.passed ? '[통과]' : '[차단]'}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+
+                {/* 현재 차단 사유 또는 명령 처리 결과 */}
+                <div
+                  className={`mt-2 px-3 py-2 rounded-lg border text-xs flex items-center justify-between gap-2 ${
+                    commandStatus.lastVerdict === 'APPROVED'
+                      ? 'bg-emerald-950/50 border-emerald-600/60 text-emerald-200'
+                      : commandStatus.lastVerdict === 'BLOCKED'
+                      ? 'bg-rose-950/60 border-rose-500/70 text-rose-200'
+                      : commandStatus.lastVerdict === 'UNCONFIRMED_TIMEOUT'
+                      ? 'bg-amber-950/60 border-amber-500/70 text-amber-200'
+                      : 'bg-slate-950 border-slate-800 text-slate-300'
+                  }`}
+                >
+                  <div>
+                    <span className="font-bold mr-1.5">
+                      {commandStatus.lastVerdict === 'APPROVED'
+                        ? '[승인 완료]'
+                        : commandStatus.lastVerdict === 'BLOCKED'
+                        ? '[안전 차단]'
+                        : commandStatus.lastVerdict === 'UNCONFIRMED_TIMEOUT'
+                        ? '[결과 미확인]'
+                        : '[상태 안내]'}
+                    </span>
+                    <span>{commandStatus.lastMessage}</span>
+                  </div>
+                  <span className="text-[11px] font-mono text-slate-400 shrink-0">
+                    센서유효:{safetyEval.sensorFresh ? 'OK' : 'EXPIRED'}
+                  </span>
+                </div>
+              </div>
+            </section>
+
+            {/* 우측 영역 (7칸): 16:9 센터페시아 IVI 디스플레이 */}
+            <section className="lg:col-span-7 flex flex-col justify-between bg-slate-900/95 border border-slate-800 rounded-xl p-3">
+              {/* IVI 상단 소스 전환 바 */}
+              <div className="flex flex-wrap items-center justify-between gap-2 pb-2 mb-2 border-b border-slate-800">
+                <div className="flex items-center gap-2">
+                  <span className="text-xs font-extrabold text-sky-400">
+                    2. IVI 디스플레이 (16:9 센터페시아 고객용 화면)
+                  </span>
+                  <div className="flex items-center rounded-lg bg-slate-950 p-0.5 border border-slate-800 text-[11px]">
+                    <button
+                      type="button"
+                      onClick={() => setIviDisplayType('BUILTIN')}
+                      className={`px-2 py-1 rounded font-semibold ${
+                        iviDisplayType === 'BUILTIN' ? 'bg-sky-600 text-white' : 'text-slate-400'
+                      }`}
+                    >
+                      내장 CurbLink 웹 시연 화면
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setIviDisplayType('IFRAME')}
+                      className={`px-2 py-1 rounded font-semibold ${
+                        iviDisplayType === 'IFRAME' ? 'bg-sky-600 text-white' : 'text-slate-400'
+                      }`}
+                    >
+                      외부 웹 앱 URL(iframe)
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setIviDisplayType('APK_MIRROR_INFO')}
+                      className={`px-2 py-1 rounded font-semibold ${
+                        iviDisplayType === 'APK_MIRROR_INFO' ? 'bg-sky-600 text-white' : 'text-slate-400'
+                      }`}
+                    >
+                      외부 AAOS 에뮬레이터(APK) 연결 뷰
+                    </button>
+                  </div>
+                </div>
+
+                <span className="text-[11px] font-mono text-slate-400">
+                  소유권: {mode === 'WEB_DEMO' ? 'MockVehicleAdapter (웹 데모)' : 'External Bridge (외부 기준)'}
+                </span>
+              </div>
+
+              {/* 16:9 고정 비율 IVI 컨테이너 */}
+              <div className="w-full aspect-video bg-[#080d1a] rounded-xl border-2 border-slate-700/90 overflow-hidden flex flex-col justify-between relative shadow-2xl">
+                {/* (1) 내장 CurbLink 고객용 웹 시연 화면 */}
+                {iviDisplayType === 'BUILTIN' && (
+                  <div className="w-full h-full flex flex-col justify-between p-4 overflow-y-auto custom-scroll">
+                    {/* IVI 상단 상태바 */}
+                    <div className="flex items-center justify-between border-b border-slate-800 pb-2.5">
+                      <div className="flex items-center gap-2">
+                        <span className="px-2 py-0.5 rounded bg-sky-500/20 border border-sky-400/50 text-sky-300 text-xs font-bold">
+                          Pleos CurbLink
+                        </span>
+                        <span className="text-xs text-slate-300 font-semibold">
+                          주문번호 {scenarioState.orderId} · {scenarioState.orderItemsSummary}
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-2 text-xs">
+                        <span
+                          className={`px-2 py-0.5 rounded font-bold ${
+                            !connectionState.connected
+                              ? 'bg-rose-500/20 text-rose-300 border border-rose-500/50'
+                              : isTouchLockedByDriving
+                              ? 'bg-amber-500/20 text-amber-300 border border-amber-500/50'
+                              : 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/50'
+                          }`}
+                        >
+                          {!connectionState.connected
+                            ? '통신 끊김 (상태 미확인)'
+                            : isTouchLockedByDriving
+                            ? `주행 잠금 (${vehicleState.gear}단 · ${vehicleState.speedKph}km/h)`
+                            : '정차 중 (P단 · 터치 조작 가능)'}
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* Gleo 음성 시연 대화창 (음성 시연 중일 때 또는 상시 프리뷰) */}
+                    {autoPlayState.voiceDialog && autoPlayState.voiceDialog.length > 0 && (
+                      <div className="my-2 p-2.5 rounded-xl bg-indigo-950/70 border border-indigo-500/50 text-xs">
+                        <div className="flex items-center justify-between mb-1">
+                          <span className="font-bold text-indigo-300">
+                            [Gleo 음성 시연 — 사전 작성된 대화 시뮬레이션]
+                          </span>
+                          <span className="text-[11px] text-slate-400">실제 음성 인식 엔진 미연결</span>
+                        </div>
+                        {autoPlayState.voiceDialog.map((line, idx) => (
+                          <p key={idx} className="text-slate-200">
+                            <strong>{line.speaker}:</strong> {line.text}
+                          </p>
+                        ))}
+                      </div>
+                    )}
+
+                    {/* 주행 중 터치 제한 잠금 배너 */}
+                    {isTouchLockedByDriving && (
+                      <div className="my-2 p-3 rounded-xl bg-amber-950/60 border border-amber-500/70 text-amber-200 text-xs flex items-center justify-between">
+                        <div>
+                          <strong className="block text-sm">
+                            {!connectionState.connected || !connectionState.snapshotReceived
+                              ? '차량 통신 끊김 또는 초기 상태 미확인(UNKNOWN) — 조작이 잠겼습니다.'
+                              : '주행 중 또는 P단 정차 조건 미충족 — 운전자 보호를 위해 주문·설정·인계 터치 조작을 잠급니다.'}
+                          </strong>
+                          <span>
+                            안전하게 정차(0km/h, P단, UX 제한 해제)한 후 배려 픽업 설정 및 트렁크 개방을 진행할 수 있습니다.
+                          </span>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* 배려 픽업 무효화 경고 배너 */}
+                    {scenarioState.invalidationNotice && (
+                      <div className="my-1.5 px-3 py-2 rounded-lg bg-rose-950/70 border border-rose-500/70 text-rose-200 text-xs flex items-center justify-between">
+                        <span>
+                          <strong>[준비 상태 무효화]</strong> {scenarioState.invalidationNotice}
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setScenarioState((prev) => ({ ...prev, invalidationNotice: '' }))
+                          }
+                          className="px-2 py-0.5 rounded bg-rose-800/60 text-white text-[11px]"
+                        >
+                          닫기
+                        </button>
+                      </div>
+                    )}
+
+                    {/* 고객용 본문 2단 레이아웃: 좌측 배려 픽업 요청 / 우측 준비 확인 및 트렁크 열기 */}
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3 my-auto py-1">
+                      {/* 좌측: 배려 픽업 도움 선택 */}
+                      <div className="p-3 rounded-xl bg-slate-900/90 border border-slate-800 flex flex-col justify-between">
+                        <div>
+                          <div className="flex items-center justify-between mb-1.5">
+                            <h2 className="text-sm font-bold text-white">
+                              배려 픽업 도움 선택 (선택 사항)
+                            </h2>
+                            <span className="text-[11px] px-2 py-0.5 rounded bg-slate-800 text-slate-300">
+                              {careActive ? '배려 픽업 활성' : '일반 픽업 모드'}
+                            </span>
+                          </div>
+                          <p className="text-[11px] text-slate-400 mb-2.5">
+                            진단명이나 장애 여부를 입력받지 않습니다. 필요한 지원만 선택하세요.
+                          </p>
+
+                          <div className="space-y-2">
+                            {[
+                              { key: 'waitInVehicle', label: '차량 안에서 기다릴게요.' },
+                              { key: 'loadingHelp', label: '물품 적재를 도와주세요.' },
+                              { key: 'extraPrepTime', label: '준비 시간이 조금 더 필요해요.' },
+                            ].map((item) => {
+                              const checked = Boolean(scenarioState.carePrefs[item.key]);
+                              return (
+                                <button
+                                  key={item.key}
+                                  type="button"
+                                  disabled={mode === 'EXTERNAL_BRIDGE' || isTouchLockedByDriving}
+                                  onClick={() => toggleCarePref(item.key)}
+                                  aria-pressed={checked}
+                                  className={`w-full min-h-[46px] px-3 py-2 rounded-xl border text-left text-xs font-bold transition flex items-center justify-between ${
+                                    checked
+                                      ? 'bg-sky-600/25 border-sky-400 text-white'
+                                      : 'bg-slate-950 border-slate-800 text-slate-300 hover:border-slate-600'
+                                  } ${isTouchLockedByDriving ? 'opacity-50 cursor-not-allowed' : ''}`}
+                                >
+                                  <span>{item.label}</span>
+                                  <span className="px-2 py-0.5 rounded text-[11px] bg-slate-900 border border-slate-700">
+                                    {checked ? '✓ 선택됨' : '선택 안 함'}
+                                  </span>
+                                </button>
+                              );
+                            })}
+                          </div>
+                        </div>
+
+                        {/* 매장 지원 응답 상태 표시 (텍스트 + 기호 함께 표기) */}
+                        <div className="mt-3 pt-2.5 border-t border-slate-800 flex items-center justify-between text-xs">
+                          <span className="text-slate-400 font-semibold">매장 지원 응답:</span>
+                          {!careActive ? (
+                            <span className="px-2.5 py-1 rounded bg-slate-800 text-slate-300 font-bold">
+                              [—] 일반 픽업 (지원 요청 없음)
+                            </span>
+                          ) : scenarioState.merchantResponse === 'ACCEPTED' ? (
+                            <span className="px-2.5 py-1 rounded bg-emerald-500/20 border border-emerald-500/60 text-emerald-300 font-bold">
+                              [✓ 수락됨] 매장 지원 수락 완료
+                            </span>
+                          ) : scenarioState.merchantResponse === 'DECLINED' ? (
+                            <span className="px-2.5 py-1 rounded bg-rose-500/20 border border-rose-500/60 text-rose-300 font-bold">
+                              [✕ 거절됨] 매장 지원 불가 (인계 차단)
+                            </span>
+                          ) : (
+                            <span className="px-2.5 py-1 rounded bg-amber-500/20 border border-amber-500/60 text-amber-300 font-bold">
+                              [⋯ 대기 중] 매장 응답 대기 (미확정)
+                            </span>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* 우측: 고객 준비 확인 및 트렁크 열기 승인 */}
+                      <div className="p-3 rounded-xl bg-slate-900/90 border border-slate-800 flex flex-col justify-between">
+                        <div>
+                          <h2 className="text-sm font-bold text-white mb-1.5">
+                            인계 준비 확인 및 트렁크 개방 승인
+                          </h2>
+                          <div className="grid grid-cols-2 gap-1.5 text-[11px] mb-3">
+                            <div className="px-2.5 py-1.5 rounded bg-slate-950 border border-slate-800">
+                              주문 상태:{' '}
+                              <strong className={scenarioState.orderReady ? 'text-emerald-400' : 'text-amber-400'}>
+                                {scenarioState.orderReady ? '✓ 준비 완료' : '⋯ 준비 중'}
+                              </strong>
+                            </div>
+                            <div className="px-2.5 py-1.5 rounded bg-slate-950 border border-slate-800">
+                              직원 OTP:{' '}
+                              <strong className={scenarioState.otpVerified ? 'text-emerald-400' : 'text-amber-400'}>
+                                {scenarioState.otpVerified ? '✓ 인증 완료' : '✕ 미인증'}
+                              </strong>
+                            </div>
+                            <div className="px-2.5 py-1.5 rounded bg-slate-950 border border-slate-800">
+                              픽업 구역:{' '}
+                              <strong className={scenarioState.pickupZoneConfirmed ? 'text-emerald-400' : 'text-amber-400'}>
+                                {scenarioState.pickupZoneConfirmed ? '✓ A-3 확인됨' : '✕ 미확인'}
+                              </strong>
+                            </div>
+                            <div className="px-2.5 py-1.5 rounded bg-slate-950 border border-slate-800">
+                              트렁크 상태:{' '}
+                              <strong className="text-sky-400">
+                                {!connectionState.connected ? 'UNKNOWN' : vehicleState.doors.trunk}
+                              </strong>
+                            </div>
+                          </div>
+
+                          {/* 배려 픽업 전용: 고객의 명시적인 "준비됐어요" 확인 버튼 */}
+                          {careActive && (
+                            <div className="mb-3">
+                              <button
+                                type="button"
+                                disabled={
+                                  mode === 'EXTERNAL_BRIDGE' || isTouchLockedByDriving ||
+                                  scenarioState.merchantResponse !== 'ACCEPTED'
+                                }
+                                onClick={() => {
+                                  setScenarioState((prev) => ({
+                                    ...prev,
+                                    customerReadyConfirmed: !prev.customerReadyConfirmed,
+                                    invalidationNotice: '',
+                                  }));
+                                  appendLog(
+                                    'CUSTOMER_READY',
+                                    `고객 명시적 준비 확인 전환: ${!scenarioState.customerReadyConfirmed}`
+                                  );
+                                }}
+                                aria-pressed={scenarioState.customerReadyConfirmed}
+                                className={`w-full min-h-[54px] px-4 py-2.5 rounded-xl border text-xs font-extrabold transition flex items-center justify-between ${
+                                  scenarioState.customerReadyConfirmed
+                                    ? 'bg-emerald-600 border-emerald-300 text-white shadow-lg'
+                                    : 'bg-slate-800 border-slate-600 text-slate-200 hover:bg-slate-700'
+                                } ${
+                                  mode === 'EXTERNAL_BRIDGE' || isTouchLockedByDriving ||
+                                  scenarioState.merchantResponse !== 'ACCEPTED'
+                                    ? 'opacity-45 cursor-not-allowed'
+                                    : ''
+                                }`}
+                              >
+                                <span>
+                                  {scenarioState.customerReadyConfirmed
+                                    ? '[✓ 확인 완료] 정차 중 · 인계 준비됐어요'
+                                    : '[터치 필요] 정차 중 · 인계 준비됐어요 확인'}
+                                </span>
+                                <span className="text-[11px] px-2 py-0.5 rounded bg-black/30">
+                                  {scenarioState.customerReadyConfirmed ? '준비 완료됨' : '미확인'}
+                                </span>
+                              </button>
+                            </div>
+                          )}
+                        </div>
+
+                        {/* 최종 트렁크 열기 / 적재 완료 수령 버튼 */}
+                        <div className="space-y-2">
+                          {vehicleState.doors.trunk === 'OPEN' ? (
+                            <button
+                              type="button"
+                              disabled={mode === 'EXTERNAL_BRIDGE' || isTouchLockedByDriving}
+                              onClick={completeLoadingAndCloseTrunk}
+                              className="w-full min-h-[58px] px-4 py-3 rounded-xl bg-emerald-600 hover:bg-emerald-500 border border-emerald-300 text-white text-sm font-extrabold transition shadow-lg"
+                            >
+                              [✓ 트렁크 열림] 직원 적재 완료 · 트렁크 닫기 및 수령 확인
+                            </button>
+                          ) : (
+                            <button
+                              type="button"
+                              disabled={mode === 'EXTERNAL_BRIDGE' || isTouchLockedByDriving}
+                              onClick={() =>
+                                handleDoorCommandRequest('trunk', 'OPEN', '고객 IVI 화면 명시적 열기 승인 클릭')
+                              }
+                              className={`w-full min-h-[58px] px-4 py-3 rounded-xl border text-sm font-extrabold transition flex items-center justify-between ${
+                                safetyEval.canEnableOpenButton
+                                  ? 'bg-sky-600 hover:bg-sky-500 border-sky-300 text-white shadow-lg'
+                                  : 'bg-slate-800/90 hover:bg-slate-800 border-slate-700 text-slate-300'
+                              } ${isTouchLockedByDriving ? 'opacity-50 cursor-not-allowed' : ''}`}
+                            >
+                              <span>
+                                {safetyEval.canEnableOpenButton
+                                  ? '[✓ 조건 충족] 확인 후 트렁크 열기 승인 요청'
+                                  : '[! 조건 미충족] 트렁크 열기 요청 (클릭 시 차단 사유 확인)'}
+                              </span>
+                              <span className="text-xs px-2 py-0.5 rounded bg-black/30 font-mono">
+                                {safetyEval.canEnableOpenButton
+                                  ? 'READY'
+                                  : `차단:${safetyEval.preConditionsCodes.length}`}
+                              </span>
+                            </button>
+                          )}
+
+                          {scenarioState.handoffCompleted && (
+                            <div className="px-3 py-1.5 rounded-lg bg-emerald-950/80 border border-emerald-500/60 text-emerald-300 text-xs font-bold text-center">
+                              ✓ 물품 적재 및 트렁크 닫힘 완료 — 안전한 인계가 완료되었습니다!
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* IVI 하단 현재 차단 사유 요약 바 */}
+                    <div className="pt-2 border-t border-slate-800 flex flex-wrap items-center justify-between gap-2 text-xs">
+                      <div className="truncate">
+                        {safetyEval.preConditionsKo.length === 0 ? (
+                          <span className="text-emerald-400 font-bold">
+                            ✓ 모든 사전 안전 조건이 충족되었습니다. 고객 열기 승인 시 트렁크가 개방됩니다.
+                          </span>
+                        ) : (
+                          <span className="text-amber-300 font-semibold">
+                            현재 대기/차단 사유: {safetyEval.preConditionsKo.join(' · ')}
+                          </span>
+                        )}
+                      </div>
+                      <span className="text-[11px] text-slate-500 font-mono">
+                        curblink.vehicle.v1
+                      </span>
+                    </div>
+                  </div>
+                )}
+
+                {/* (2) 선택적 외부 웹 앱 URL iframe 임베딩 뷰 */}
+                {iviDisplayType === 'IFRAME' && (
+                  <div className="w-full h-full flex flex-col bg-slate-950">
+                    <form
+                      onSubmit={(e) => {
+                        e.preventDefault();
+                        setUrlError('');
+                        try {
+                          const parsed = new URL(iframeUrlInput.trim());
+                          if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
+                            setUrlError('http:// 또는 https:// 프로토콜만 허용됩니다.');
+                            return;
+                          }
+                          setActiveIframeUrl(parsed.toString());
+                          setAllowedOriginInput(parsed.origin);
+                          appendLog('IFRAME_MOUNT', `외부 웹 앱 마운트 (${parsed.origin})`);
+                        } catch (err) {
+                          setUrlError('유효한 http/https URL을 입력하세요. (APK 파일은 iframe에 넣을 수 없습니다)');
+                        }
+                      }}
+                      className="p-2.5 bg-slate-900 border-b border-slate-800 flex flex-wrap items-center gap-2 text-xs"
+                    >
+                      <input
+                        type="text"
+                        value={iframeUrlInput}
+                        onChange={(e) => setIframeUrlInput(e.target.value)}
+                        placeholder="허용된 외부 웹 앱 URL (예: http://localhost:3000)"
+                        className="flex-1 px-2.5 py-1.5 rounded bg-slate-950 border border-slate-700 text-slate-200"
+                      />
+                      <input
+                        type="text"
+                        value={allowedOriginInput}
+                        onChange={(e) => setAllowedOriginInput(e.target.value)}
+                        placeholder="허용 targetOrigin"
+                        className="w-48 px-2.5 py-1.5 rounded bg-slate-950 border border-slate-700 text-slate-300 font-mono"
+                      />
+                      <button
+                        type="submit"
+                        className="px-3 py-1.5 rounded bg-sky-600 hover:bg-sky-500 text-white font-bold"
+                      >
+                        웹 앱 로드
+                      </button>
+                    </form>
+                    {urlError && (
+                      <div className="px-3 py-1.5 bg-rose-950 text-rose-300 text-xs border-b border-rose-800">
+                        {urlError}
+                      </div>
+                    )}
+                    {activeIframeUrl ? (
+                      <iframe
+                        id="ivi-app"
+                        ref={iframeRef}
+                        title="CurbLink External Web IVI"
+                        src={activeIframeUrl}
+                        className="w-full flex-1 border-0"
+                        sandbox="allow-scripts allow-same-origin allow-forms"
+                      />
+                    ) : (
+                      <div className="flex-1 flex flex-col items-center justify-center p-6 text-center text-xs text-slate-400">
+                        <p className="font-bold text-slate-200 mb-1">
+                          외부 웹 앱 URL이 지정되지 않았습니다.
+                        </p>
+                        <p>
+                          위 입력창에 http/https 웹 앱 주소를 입력하면 targetOrigin 검증과 함께 postMessage로 연동됩니다.
+                        </p>
+                        <p className="mt-2 text-amber-400">
+                          ※ Android APK 파일은 브라우저 iframe에서 직접 실행할 수 없습니다.
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* (3) 실제 APK / 외부 AAOS 에뮬레이터 연결 상태 뷰 */}
+                {iviDisplayType === 'APK_MIRROR_INFO' && (
+                  <div className="w-full h-full flex flex-col justify-between p-5 bg-slate-950 text-xs">
+                    <div className="flex items-center justify-between border-b border-slate-800 pb-3">
+                      <div>
+                        <span className="px-2 py-0.5 rounded bg-indigo-500/20 border border-indigo-400 text-indigo-300 font-bold mr-2">
+                          외부 AAOS 에뮬레이터 연결 모드
+                        </span>
+                        <span className="text-slate-300 font-semibold">
+                          Android APK는 브라우저 iframe 내부에서 직접 실행되지 않습니다.
+                        </span>
+                      </div>
+                      <span className="font-mono text-slate-400">{wsStatusText}</span>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 my-auto">
+                      <div className="p-4 rounded-xl bg-slate-900 border border-slate-800 space-y-2">
+                        <h3 className="text-sm font-bold text-white">
+                          실제 Android APK 연동 아키텍처 안내
+                        </h3>
+                        <p className="text-slate-300 leading-relaxed">
+                          1. Android Studio AAOS 에뮬레이터(또는 scrcpy/미러링 창)에서{' '}
+                          <code className="text-sky-400">Pleos-CurbLink-demo.apk</code>를 실행합니다.
+                        </p>
+                        <p className="text-slate-300 leading-relaxed">
+                          2. 에뮬레이터 영상은 별도 창 미러링이 필요하며, 본 웹 시뮬레이터는{' '}
+                          <code className="text-sky-400">WebSocket 브리지({wsUrlInput})</code>를 통해{' '}
+                          <code className="text-sky-400">curblink.vehicle.v1</code> JSON 패킷을 실시간 송수신합니다.
+                        </p>
+                        <p className="text-amber-300">
+                          ※ BroadcastChannel은 동일 출처(same-origin) 웹 탭 간 통신 수단이며 APK와 직접 연결되지 않습니다.
+                        </p>
+                      </div>
+
+                      <div className="p-4 rounded-xl bg-slate-900 border border-slate-800 space-y-2 font-mono">
+                        <h3 className="text-sm font-bold text-white font-sans">
+                          수신된 최신 브리지 텔레메트리
+                        </h3>
+                        <div>세션 ID: {connectionState.sessionId}</div>
+                        <div>연결 상태: {connectionState.connected ? 'CONNECTED' : 'DISCONNECTED'}</div>
+                        <div>스냅샷 수신: {connectionState.snapshotReceived ? 'YES' : 'NO (UNKNOWN)'}</div>
+                        <div>최신 Sequence: {connectionState.lastSequence}</div>
+                        <div>기어 / 차속: {vehicleState.gear} / {vehicleState.speedKph} km/h</div>
+                        <div>
+                          도어 상태: D:{vehicleState.doors.driverDoor} / P:{vehicleState.doors.passengerDoor} / T:{vehicleState.doors.trunk}
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center justify-between border-t border-slate-800 pt-3">
+                      <div className="flex items-center gap-2">
+                        <input
+                          type="text"
+                          value={wsUrlInput}
+                          onChange={(e) => setWsUrlInput(e.target.value)}
+                          aria-label="WebSocket 브리지 주소"
+                          className="w-60 px-2.5 py-1.5 rounded bg-slate-900 border border-slate-700 text-slate-200 font-mono"
+                        />
+                        <button
+                          type="button"
+                          onClick={connectWebSocket}
+                          className="px-3 py-1.5 rounded bg-indigo-600 hover:bg-indigo-500 text-white font-bold"
+                        >
+                          WebSocket 연결 시도
+                        </button>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => setIviDisplayType('BUILTIN')}
+                        className="px-3 py-1.5 rounded bg-slate-800 hover:bg-slate-700 text-slate-200"
+                      >
+                        내장 웹 시연 화면으로 돌아가기
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </section>
+          </main>
+
+          {/* 하단 영역: 3. 평가자 제어 독 (고객용 UI와 명확히 분리된 심사위원/시연자 전용 상태 주입 패널) + 실시간 이벤트 로그 */}
+          <footer className="w-full max-w-[1840px] mx-auto mt-2.5 grid grid-cols-1 lg:grid-cols-12 gap-3">
+            {/* 평가자 제어 독 (8칸) */}
+            <section
+              aria-label="평가자 제어 독"
+              className="lg:col-span-8 p-3 rounded-xl bg-slate-900/95 border-2 border-indigo-500/40 shadow-xl"
+            >
+              <div className="flex flex-wrap items-center justify-between gap-2 pb-2 mb-2.5 border-b border-slate-800">
+                <div className="flex items-center gap-2">
+                  <span className="px-2 py-0.5 rounded bg-indigo-600 text-white text-xs font-extrabold">
+                    3. 평가자 제어 독 (EVALUATOR DOCK)
+                  </span>
+                  <span className="text-xs text-slate-300">
+                    고객용 앱 UI와 분리된 심사/검증용 차량·매장 상태 주입 패널 (강제 도어 변경은 앱 정상 제어로 기록되지 않음)
+                  </span>
+                </div>
+
+                {/* 발표용 자동 시나리오 재생 컨트롤 */}
+                <div className="flex items-center gap-1.5">
+                  <button
+                    type="button"
+                    onClick={startAutoScenario}
+                    className="px-2.5 py-1 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold"
+                  >
+                    ▶ 발표 시나리오 자동 재생 (70초)
+                  </button>
+                  {autoPlayState.playing && (
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setAutoPlayState((prev) => ({ ...prev, paused: !prev.paused }))
+                      }
+                      className="px-2.5 py-1 rounded-lg bg-amber-600 hover:bg-amber-500 text-white text-xs font-bold"
+                    >
+                      {autoPlayState.paused ? '계속 재생' : '일시정지'}
+                    </button>
+                  )}
+                  <button
+                    type="button"
+                    onClick={resetAll}
+                    className="px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-200 text-xs font-bold"
+                  >
+                    ↺ 전체 초기화
+                  </button>
+                </div>
+              </div>
+
+              {mode === 'EXTERNAL_BRIDGE' && <div className="p-3 my-2 border border-amber-500 rounded text-amber-200">
+                <p>외부 모드: 주문·배려 요청·고객 준비·정상 열기/닫기는 실제 APK에서 조작합니다.</p>
+                <button type="button" disabled={!connectionState.connected}
+                  className="mt-2 p-3 border rounded bg-slate-800 disabled:opacity-40"
+                  onClick={() => sendEvaluatorInjection('평가자 초기 차량 상태 주입 · 고객 승인 아님', {
+                    speedKph:0,gear:'P',uxRestricted:false,doors:{driverDoor:'CLOSED',passengerDoor:'CLOSED',trunk:'CLOSED'},
+                    rearObstacle:false,vehicleDataValid:true,sensorDataValid:true,oemControlAllowed:true
+                  })}>평가자: 정차·센서 정상 상태 주입 (실차 제어 아님)</button>
+              </div>}
+              {/* 제어 컨트롤 그리드 */}
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 text-xs">
+                {/* 1) 주행·기어·UX 제한 */}
+                <div className="p-2.5 rounded-lg bg-slate-950 border border-slate-800 space-y-2">
+                  <div className="font-bold text-slate-300 border-b border-slate-800 pb-1">
+                    차속 · 기어 · 주행 UX 제한
+                  </div>
+                  <div className="flex items-center justify-between gap-1">
+                    <span>기어:</span>
+                    <div className="flex gap-1">
+                      {['P', 'D', 'R'].map((g) => (
+                        <button
+                          key={g}
+                          type="button"
+                          onClick={() =>
+                            sendEvaluatorInjection(`기어 ${g}단 전환`, {
+                              gear: g,
+                              uxRestricted: g !== 'P' ? true : vehicleState.uxRestricted,
+                            })
+                          }
+                          className={`px-2 py-0.5 rounded font-bold ${
+                            vehicleState.gear === g
+                              ? 'bg-sky-600 text-white'
+                              : 'bg-slate-800 text-slate-400'
+                          }`}
+                        >
+                          {g}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div>
+                    <div className="flex justify-between text-[11px] text-slate-400 mb-0.5">
+                      <span>차속 (km/h)</span>
+                      <span className="font-mono text-sky-400">{vehicleState.speedKph} km/h</span>
+                    </div>
+                    <input
+                      type="range"
+                      min="0"
+                      max="80"
+                      step="5"
+                      value={vehicleState.speedKph}
+                      aria-label="차속 조절 슬라이더"
+                      onChange={(e) => {
+                        const spd = Number(e.target.value);
+                        sendEvaluatorInjection(`차속 ${spd}km/h 변경`, {
+                          speedKph: spd,
+                          gear: spd > 0 && vehicleState.gear === 'P' ? 'D' : vehicleState.gear,
+                          uxRestricted: spd > 0 ? true : vehicleState.uxRestricted,
+                        });
+                      }}
+                      className="w-full accent-sky-500"
+                    />
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={() =>
+                      sendEvaluatorInjection(
+                        `주행 UX 제한 ${!vehicleState.uxRestricted ? '활성화' : '해제'}`,
+                        { uxRestricted: !vehicleState.uxRestricted }
+                      )
+                    }
+                    className={`w-full py-1 rounded font-semibold border ${
+                      vehicleState.uxRestricted
+                        ? 'bg-amber-500/20 border-amber-500 text-amber-300'
+                        : 'bg-slate-900 border-slate-700 text-slate-300'
+                    }`}
+                  >
+                    UX 제한: {vehicleState.uxRestricted ? '활성 (잠금)' : '해제 (정상)'}
+                  </button>
+                </div>
+
+                {/* 2) 센서·장애물·OEM·구역 */}
+                <div className="p-2.5 rounded-lg bg-slate-950 border border-slate-800 space-y-1.5">
+                  <div className="font-bold text-slate-300 border-b border-slate-800 pb-1">
+                    센서 · 장애물 · 권한 · 구역
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() =>
+                      sendEvaluatorInjection(
+                        `트렁크 후방 장애물 ${!vehicleState.rearObstacle ? '감지 주입' : '제거'}`,
+                        { rearObstacle: !vehicleState.rearObstacle }
+                      )
+                    }
+                    className={`w-full py-1 px-2 rounded font-semibold border text-left flex justify-between ${
+                      vehicleState.rearObstacle
+                        ? 'bg-rose-500/25 border-rose-500 text-rose-200'
+                        : 'bg-slate-900 border-slate-700 text-slate-300'
+                    }`}
+                  >
+                    <span>후방 장애물</span>
+                    <span>{vehicleState.rearObstacle ? '감지됨' : '없음'}</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const nextFreeze = !freezeSensorStream;
+                      setFreezeSensorStream(nextFreeze);
+                      if (mode === 'EXTERNAL_BRIDGE') {
+                        sendEvaluatorInjection('센서 유효성 평가자 주입', {sensorDataValid: !nextFreeze});
+                        return;
+                      }
+                      appendLog(
+                        'EVAL_INJECT',
+                        nextFreeze
+                          ? '[평가자용 상태 주입] 센서 스트림 갱신 중단 (3초 후 센서 만료 발생)'
+                          : '[평가자용 상태 주입] 센서 스트림 주기적 갱신 재개'
+                      );
+                    }}
+                    className={`w-full py-1 px-2 rounded font-semibold border text-left flex justify-between ${
+                      freezeSensorStream || !safetyEval.sensorFresh
+                        ? 'bg-rose-500/25 border-rose-500 text-rose-200'
+                        : 'bg-slate-900 border-slate-700 text-slate-300'
+                    }`}
+                  >
+                    <span>센서 유효성(3s)</span>
+                    <span>
+                      {!safetyEval.sensorFresh
+                        ? '만료됨'
+                        : freezeSensorStream
+                        ? '갱신중단(만료대기)'
+                        : '유효'}
+                    </span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() =>
+                      sendEvaluatorInjection(
+                        `OEM 제어 권한 ${!vehicleState.oemControlAllowed ? '허용' : '거부'}`,
+                        { oemControlAllowed: !vehicleState.oemControlAllowed }
+                      )
+                    }
+                    className={`w-full py-1 px-2 rounded font-semibold border text-left flex justify-between ${
+                      !vehicleState.oemControlAllowed
+                        ? 'bg-rose-500/25 border-rose-500 text-rose-200'
+                        : 'bg-slate-900 border-slate-700 text-slate-300'
+                    }`}
+                  >
+                    <span>OEM 제어 권한</span>
+                    <span>{vehicleState.oemControlAllowed ? '허용' : '거부'}</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    disabled={mode === 'EXTERNAL_BRIDGE'}
+                    title={mode === 'EXTERNAL_BRIDGE' ? '실제 APK에서 조작' : ''}
+                    onClick={() =>
+                      sendEvaluatorInjection(
+                        `픽업 구역(A-3) ${!scenarioState.pickupZoneConfirmed ? '확인' : '미확인'}`,
+                        null,
+                        { pickupZoneConfirmed: !scenarioState.pickupZoneConfirmed }
+                      )
+                    }
+                    className={`w-full py-1 px-2 rounded font-semibold border text-left flex justify-between ${
+                      !scenarioState.pickupZoneConfirmed
+                        ? 'bg-amber-500/25 border-amber-500 text-amber-200'
+                        : 'bg-slate-900 border-slate-700 text-slate-300'
+                    }`}
+                  >
+                    <span>픽업 구역(A-3)</span>
+                    <span>{scenarioState.pickupZoneConfirmed ? '확인됨' : '미확인'}</span>
+                  </button>
+                </div>
+
+                {/* 3) 매장·OTP·배려 픽업 응답 */}
+                <div className="p-2.5 rounded-lg bg-slate-950 border border-slate-800 space-y-1.5">
+                  <div className="font-bold text-slate-300 border-b border-slate-800 pb-1">
+                    주문 · 직원 OTP · 매장 지원 응답
+                  </div>
+                  <button
+                    type="button"
+                    disabled={mode === 'EXTERNAL_BRIDGE'}
+                    title={mode === 'EXTERNAL_BRIDGE' ? '실제 APK에서 조작' : ''}
+                    onClick={() =>
+                      sendEvaluatorInjection(
+                        `주문 준비 상태 ${!scenarioState.orderReady ? '완료' : '미완료'}`,
+                        null,
+                        { orderReady: !scenarioState.orderReady }
+                      )
+                    }
+                    className={`w-full py-1 px-2 rounded font-semibold border text-left flex justify-between ${
+                      !scenarioState.orderReady
+                        ? 'bg-amber-500/25 border-amber-500 text-amber-200'
+                        : 'bg-slate-900 border-slate-700 text-slate-300'
+                    }`}
+                  >
+                    <span>매장 주문 준비</span>
+                    <span>{scenarioState.orderReady ? 'READY' : '미완료'}</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    disabled={mode === 'EXTERNAL_BRIDGE'}
+                    title={mode === 'EXTERNAL_BRIDGE' ? '실제 APK에서 조작' : ''}
+                    onClick={() =>
+                      sendEvaluatorInjection(
+                        `직원 OTP 인증 ${!scenarioState.otpVerified ? '성공' : '실패(미인증)'}`,
+                        null,
+                        { otpVerified: !scenarioState.otpVerified }
+                      )
+                    }
+                    className={`w-full py-1 px-2 rounded font-semibold border text-left flex justify-between ${
+                      !scenarioState.otpVerified
+                        ? 'bg-rose-500/25 border-rose-500 text-rose-200'
+                        : 'bg-slate-900 border-slate-700 text-slate-300'
+                    }`}
+                  >
+                    <span>직원 OTP 인증</span>
+                    <span>{scenarioState.otpVerified ? '인증됨' : '미인증'}</span>
+                  </button>
+
+                  <div className="pt-1">
+                    <span className="block text-[11px] text-slate-400 mb-1">
+                      매장 배려 지원 응답:
+                    </span>
+                    <div className="grid grid-cols-3 gap-1">
+                      {[
+                        { code: 'PENDING', label: '대기' },
+                        { code: 'ACCEPTED', label: '수락' },
+                        { code: 'DECLINED', label: '거절' },
+                      ].map((r) => (
+                        <button
+                          key={r.code}
+                          type="button"
+                          disabled={mode === 'EXTERNAL_BRIDGE'}
+                          title={mode === 'EXTERNAL_BRIDGE' ? '실제 APK에서 조작' : ''}
+                          onClick={() =>
+                            sendEvaluatorInjection(`매장 지원 응답: ${r.label}`, null, {
+                              merchantResponse: r.code,
+                            })
+                          }
+                          className={`py-1 rounded font-bold border ${
+                            scenarioState.merchantResponse === r.code
+                              ? 'bg-indigo-600 border-indigo-400 text-white'
+                              : 'bg-slate-900 border-slate-700 text-slate-400'
+                          }`}
+                        >
+                          {r.label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+
+                {/* 4) 도어 강제 상태 주입 & 통신 연결 제어 */}
+                <div className="p-2.5 rounded-lg bg-slate-950 border border-slate-800 space-y-1.5">
+                  <div className="font-bold text-slate-300 border-b border-slate-800 pb-1">
+                    평가자용 상태 주입 · 통신 제어
+                  </div>
+                  {[
+                    { key: 'driverDoor', label: '운전석 도어 주입' },
+                    { key: 'passengerDoor', label: '조수석 도어 주입' },
+                    { key: 'trunk', label: '트렁크 상태 주입' },
+                  ].map((d) => {
+                    const isOpen = vehicleState.doors[d.key] === 'OPEN';
+                    return (
+                      <button
+                        key={d.key}
+                        type="button"
+                        onClick={() =>
+                          sendEvaluatorInjection(
+                            `${d.label}: ${isOpen ? 'CLOSED' : 'OPEN'}`,
+                            {
+                              doors: { [d.key]: isOpen ? 'CLOSED' : 'OPEN' },
+                            }
+                          )
+                        }
+                        className="w-full py-1 px-2 rounded bg-slate-900 hover:bg-slate-800 border border-slate-700 text-left flex justify-between"
+                      >
+                        <span>{d.label}</span>
+                        <span className="font-mono text-sky-400">
+                          {vehicleState.doors[d.key]}
+                        </span>
+                      </button>
+                    );
+                  })}
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (mode === 'EXTERNAL_BRIDGE') {
+                        if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) wsRef.current.close();
+                        else connectWebSocket();
+                        return;
+                      }
+                      const nextConn = !connectionState.connected;
+                      if (!nextConn) {
+                        setConnectionState((prev) => ({
+                          ...prev,
+                          connected: false,
+                          snapshotReceived: false,
+                        }));
+                        setVehicleState((prev) => ({
+                          ...prev,
+                          gear: 'UNKNOWN',
+                          doors: {
+                            driverDoor: 'UNKNOWN',
+                            passengerDoor: 'UNKNOWN',
+                            trunk: 'UNKNOWN',
+                          },
+                        }));
+                        appendLog('COMM_DROP', '[평가자 주입] 통신 연결 해제 — 상태 UNKNOWN 및 제어 차단');
+                      } else {
+                        const now = Date.now();
+                        setConnectionState({
+                          connected: true,
+                          snapshotReceived: true,
+                          sessionId: createId('sess-re'),
+                          lastHeartbeatAt: now,
+                          lastSequence: 1,
+                        });
+                        setVehicleState((prev) => ({
+                          ...prev,
+                          sequence: 1,
+                          gear: 'P',
+                          speedKph: 0,
+                          doors: {
+                            driverDoor: 'CLOSED',
+                            passengerDoor: 'CLOSED',
+                            trunk: 'CLOSED',
+                          },
+                          lastVehicleRxAt: now,
+                          lastSensorRxAt: now,
+                        }));
+                        appendLog('COMM_RESTORE', '[평가자 주입] 통신 재연결 및 새 세션 스냅샷 동기화 완료');
+                      }
+                    }}
+                    className={`w-full py-1 px-2 rounded font-bold border text-left flex justify-between ${
+                      !connectionState.connected
+                        ? 'bg-rose-600/30 border-rose-400 text-rose-200'
+                        : 'bg-emerald-600/20 border-emerald-500/60 text-emerald-300'
+                    }`}
+                  >
+                    <span>통신 상태</span>
+                    <span>{connectionState.connected ? 'CONNECTED' : 'DISCONNECTED'}</span>
+                  </button>
+                </div>
+              </div>
+            </section>
+
+            {/* 우측 이벤트 로그 패널 (4칸) */}
+            <section
+              aria-label="프로토콜 및 안전 판단 이벤트 로그"
+              className="lg:col-span-4 p-3 rounded-xl bg-slate-900/95 border border-slate-800 flex flex-col justify-between max-h-[230px]"
+            >
+              <div className="flex items-center justify-between pb-1.5 mb-1.5 border-b border-slate-800">
+                <span className="text-xs font-bold text-slate-200">
+                  실시간 이벤트 · 안전 인터록 로그 (최대 {MAX_LOG_COUNT}건)
+                </span>
+                <div className="flex items-center gap-1.5">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const dupReqId = `req-dup-${Date.now().toString(36)}`;
+                      handleDoorCommandRequest('trunk', 'OPEN', '중복 명령 1차 전송', dupReqId);
+                      handleDoorCommandRequest('trunk', 'OPEN', '중복 명령 2차 재수신 테스트', dupReqId);
+                    }}
+                    className="px-2 py-0.5 rounded bg-slate-800 hover:bg-slate-700 text-[10px] text-sky-300 border border-slate-700"
+                  >
+                    중복 명령 방어 시험
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setEventLogs([])}
+                    className="px-2 py-0.5 rounded bg-slate-800 hover:bg-slate-700 text-[10px] text-slate-400"
+                  >
+                    비우기
+                  </button>
+                </div>
+              </div>
+
+              <div className="flex-1 overflow-y-auto custom-scroll space-y-1 pr-1 font-mono text-[11px]">
+                {eventLogs.length === 0 ? (
+                  <div className="text-slate-500 py-6 text-center">기록된 이벤트가 없습니다.</div>
+                ) : (
+                  eventLogs.map((item) => (
+                    <div
+                      key={item.id}
+                      className="px-2 py-1 rounded bg-slate-950 border border-slate-800/80 text-slate-300 flex items-start gap-1.5"
+                    >
+                      <span className="text-slate-500 shrink-0">{item.time}</span>
+                      <span className="px-1 rounded bg-slate-800 text-sky-400 shrink-0 text-[10px]">
+                        {item.category}
+                      </span>
+                      <span className="break-all">{item.summary}</span>
+                    </div>
+                  ))
+                )}
+              </div>
+            </section>
+          </footer>
+        </div>
+      );
+    }
+
+    const root = ReactDOM.createRoot(document.getElementById('root'));
+    root.render(<App />);
+  </script>
+</body>
+</html>

@@ -67,6 +67,9 @@ interface VehicleAdapter {
 interface PaymentAdapter { fun pay(order: Order, key: String): PaymentReceipt }
 
 data class DemoState(
+    val externalBridge: Boolean = false,
+    val bridgeConnected: Boolean = false,
+    val bridgeStatus: String = "독립 모의 모드",
     val care: CarePickup = CarePickup(),
     val now: Long = 0,
     val vehicle: VehicleSnapshot = VehicleSnapshot(),

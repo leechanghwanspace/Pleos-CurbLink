@@ -4,10 +4,14 @@ import android.os.SystemClock
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import java.security.SecureRandom
+import java.util.UUID
+import org.json.JSONObject
 
 class CurbLinkViewModel : ViewModel() {
     private fun clock() = SystemClock.elapsedRealtime()
@@ -15,6 +19,10 @@ class CurbLinkViewModel : ViewModel() {
     private var events = PartnerEventProcessor()
     private val mutable = MutableStateFlow(DemoState())
     val state = mutable.asStateFlow()
+    private val bridge = LocalVehicleBridge()
+    private var bridgeJob: Job? = null
+    private var bridgeSession = BridgeSession()
+    private var bridgeGeneration = 0
     init {
         reset()
         viewModelScope.launch {
@@ -22,11 +30,12 @@ class CurbLinkViewModel : ViewModel() {
                 delay(100)
                 val now = clock()
                 val s = mutable.value
-                val timedOut = s.commandAt != null && now - s.commandAt >= 5000
+                val timedOut = !s.externalBridge && s.commandAt != null && now - s.commandAt >= 5000
                 mutable.value = s.copy(now = now,
                     care = s.care.invalidate(s.vehicle, now),
-                    vehicle = s.vehicle.copy(capturedAt = now),
-                    sensor = if (s.sensorStreaming) s.sensor.copy(capturedAt = now) else s.sensor,
+                    vehicle = if (s.externalBridge) s.vehicle else s.vehicle.copy(capturedAt = now),
+                    sensor = if (!s.externalBridge && s.sensorStreaming) s.sensor.copy(capturedAt = now) else s.sensor,
+                    bridgeStatus = if (s.externalBridge && bridgeSession.timedOut(now)) "명령 결과 미확인 · 재전송 금지 · 상태 재동기화 중" else s.bridgeStatus,
                     order = if (timedOut) s.order.copy(state = OrderState.READY) else s.order,
                     commandAt = if (timedOut) null else s.commandAt,
                     staff = if (timedOut) null else s.staff,
@@ -39,6 +48,7 @@ class CurbLinkViewModel : ViewModel() {
         mutable.value = s.copy(lastMessage = message, logs = (listOf(message) + s.logs).take(12))
     }
     fun reset() {
+        if (mutable.value.externalBridge) { note("외부 연결 중 초기화는 ‘독립 시연으로 초기화’를 사용하세요"); return }
         payment = DemoPaymentAdapter(); events = PartnerEventProcessor()
         val now = clock()
         mutable.value = DemoState(now = now,
@@ -46,21 +56,23 @@ class CurbLinkViewModel : ViewModel() {
             sensor = SensorSample(SensorVerdict.CLEAR_IN_VERIFIED_RANGE, now, "모의 스트림"))
     }
     fun gear(gear: Gear, speed: Float) {
+        if (mutable.value.externalBridge) return
         val s = mutable.value
         mutable.value = s.copy(vehicle = s.vehicle.copy(gear = gear, speedKmh = speed, capturedAt = clock()),
             staff = null, issuedOtp = null,
             care = s.care.invalidate(s.vehicle.copy(gear = gear, speedKmh = speed), clock()))
         note("차량 상태 변경 · 직원 인증 초기화")
     }
-    fun restriction() { val s = mutable.value; mutable.value = s.copy(vehicle = s.vehicle.copy(uxRestricted = !s.vehicle.uxRestricted), staff = null, care = s.care.copy(customerReady = false)) }
-    fun permission() { val s = mutable.value; mutable.value = s.copy(vehicle = s.vehicle.copy(oemControlAllowed = !s.vehicle.oemControlAllowed), staff = null) }
+    fun restriction() { val s = mutable.value; if (s.externalBridge) return; mutable.value = s.copy(vehicle = s.vehicle.copy(uxRestricted = !s.vehicle.uxRestricted), staff = null, care = s.care.copy(customerReady = false)) }
+    fun permission() { val s = mutable.value; if (s.externalBridge) return; mutable.value = s.copy(vehicle = s.vehicle.copy(oemControlAllowed = !s.vehicle.oemControlAllowed), staff = null) }
     fun sensor(verdict: SensorVerdict) {
+        if (mutable.value.externalBridge) return
         val s = mutable.value
         mutable.value = s.copy(sensor = SensorSample(verdict, clock(), "시연 입력"), sensorStreaming = true,
             staff = if (verdict != SensorVerdict.CLEAR_IN_VERIFIED_RANGE) null else s.staff)
         note("모의 센서: $verdict")
     }
-    fun freezeSensor() { mutable.value = mutable.value.copy(sensorStreaming = false); note("센서 스트림 중단 · 3초 후 확인 불가") }
+    fun freezeSensor() { if (mutable.value.externalBridge) return; mutable.value = mutable.value.copy(sensorStreaming = false); note("센서 스트림 중단 · 3초 후 확인 불가") }
     fun confirmZone() {
         val s = mutable.value
         mutable.value = s.copy(zoneConfirmed = !s.zoneConfirmed, staff = null, issuedOtp = null,
@@ -142,6 +154,7 @@ class CurbLinkViewModel : ViewModel() {
     }
     fun approveOpen() {
         val s = mutable.value; val now = clock()
+        if (s.externalBridge && (!s.bridgeConnected || bridgeSession.pending != null)) return
         // Re-evaluate live conditions at the click, not a cached enabled flag.
         if (!TailgateInterlockEvaluator.canRequest(s.vehicle, s.sensor, s.staff, s.order, now, s.zoneConfirmed, true, s.care)) {
             note("개방 요청 거부 · 조건을 다시 확인하세요"); return
@@ -149,9 +162,11 @@ class CurbLinkViewModel : ViewModel() {
         mutable.value = s.copy(order = s.order.copy(state = OrderState.OPEN_REQUESTED), commandAt = now,
             commandCount = s.commandCount + 1, staff = null)
         note("⑦ 이번 요청 승인 완료 · 모의 개방 요청 전송 · 열림 응답 대기")
+        if (s.externalBridge) sendBridgeCommand("OPEN")
     }
     fun acknowledgeOpen() {
         val s = mutable.value
+        if (s.externalBridge) { note("외부 모드: 브리지의 실제 모의 상태 수신을 기다립니다"); return }
         if (s.order.state != OrderState.OPEN_REQUESTED) { note("진행 중인 개방 요청 없음"); return }
         val live = TailgateInterlockEvaluator.evaluate(s.vehicle, s.sensor,
             StaffGrant(s.order.id, s.order.revision, clock() + 1), s.order, clock())
@@ -162,8 +177,125 @@ class CurbLinkViewModel : ViewModel() {
     fun closeAndReceive() {
         val s = mutable.value
         if (s.order.state != OrderState.OPEN || SafetyPolicy.locked(s.vehicle, clock())) return
+        if (s.externalBridge) {
+            if (s.bridgeConnected && bridgeSession.pending == null) sendBridgeCommand("CLOSE")
+            return
+        }
         mutable.value = s.copy(vehicle = s.vehicle.copy(tailgate = Tailgate.CLOSED), order = s.order.copy(state = OrderState.COMPLETE))
         note("모의 닫힘 상태 + 수령 확인 · 인계 완료")
     }
     fun runTests() { mutable.value = mutable.value.copy(testResults = DemoAcceptance.run()); note("순수 로직 8개 자가검사 · 실차/규정 인증 아님") }
+
+    fun externalBridge(enabled: Boolean) {
+        if (bridgeSession.pending != null) {
+            note("명령 결과 미확인 상태에서는 모드를 바꿀 수 없습니다. 상태 복구 또는 브리지 서버 재시작 후 다시 시도하세요.")
+            return
+        }
+        bridgeGeneration++
+        bridgeJob?.cancel()
+        bridgeSession = BridgeSession()
+        mutable.value = mutable.value.copy(externalBridge = false)
+        reset()
+        if (!enabled) return
+        mutable.value = mutable.value.copy(externalBridge = true, sensorStreaming = false)
+        invalidateBridge("외부 브리지 연결 중 · 상태 미확인")
+        val generation = bridgeGeneration
+        bridgeJob = viewModelScope.launch {
+            while (generation == bridgeGeneration) {
+                try {
+                    val frame = bridge.poll()
+                    if (generation != bridgeGeneration) break
+                    applyBridgeSnapshot(frame)
+                    bridgeSession.sessionId?.let { bridge.scenario(it, scenarioPayload()) }
+                } catch (e: CancellationException) { throw e
+                } catch (_: Exception) {
+                    if (generation == bridgeGeneration) invalidateBridge("외부 브리지 연결 끊김 · 상태 미확인 · 제어 차단")
+                }
+                delay(200)
+            }
+        }
+    }
+
+    private fun invalidateBridge(message: String) {
+        val s = mutable.value
+        mutable.value = s.copy(bridgeConnected = false, bridgeStatus = message,
+            vehicle = s.vehicle.copy(gear = Gear.UNKNOWN, capturedAt = -SafetyPolicy.VEHICLE_TTL,
+                tailgate = Tailgate.UNKNOWN, oemControlAllowed = false),
+            sensor = SensorSample(SensorVerdict.UNVERIFIED, -SafetyPolicy.SENSOR_TTL, "외부 상태 미확인"),
+            staff = null, care = s.care.copy(customerReady = false))
+    }
+
+    private fun applyBridgeSnapshot(frame: BridgeSnapshot) {
+        val previousSession = bridgeSession.sessionId
+        if (!bridgeSession.acceptFrame(frame.sessionId, frame.sequence)) return
+        val changedSession = previousSession != frame.sessionId
+        val s = mutable.value
+        val now = clock()
+        val vehicle = if (frame.vehicleDataValid) frame.vehicle.copy(capturedAt = now) else
+            frame.vehicle.copy(gear = Gear.UNKNOWN, tailgate = Tailgate.UNKNOWN,
+                oemControlAllowed = false, capturedAt = -SafetyPolicy.VEHICLE_TTL)
+        val sensor = frame.sensor.copy(capturedAt = if (frame.sensorDataValid) now else -SafetyPolicy.SENSOR_TTL)
+        val unsafe = SafetyPolicy.locked(vehicle, now) || !vehicle.oemControlAllowed ||
+            SafetyPolicy.effectiveSensor(sensor, now) != SensorVerdict.CLEAR_IN_VERIFIED_RANGE
+        mutable.value = s.copy(now = now, bridgeConnected = true,
+            bridgeStatus = if (bridgeSession.timedOut(now)) "명령 결과 미확인 · 재전송 금지 · 상태 재동기화 중"
+                else if (frame.vehicleDataValid && frame.sensorDataValid) "외부 브리지 연결됨 · 모의 차량" else "외부 브리지 연결됨 · 차량/센서 미확인 · 제어 차단",
+            vehicle = vehicle, sensor = sensor,
+            staff = if (unsafe || changedSession) null else s.staff,
+            care = if (changedSession) s.care.copy(customerReady = false) else s.care.invalidate(vehicle, now),
+            commandAt = if (changedSession) null else s.commandAt,
+            order = if (changedSession && s.order.state == OrderState.OPEN_REQUESTED) s.order.copy(state = OrderState.READY) else s.order)
+        frame.results.forEach(::applyBridgeResult)
+        completeObservedCommand()
+    }
+
+    private fun applyBridgeResult(result: BridgeCommandResult) {
+        if (!bridgeSession.result(result.sessionId, result.requestId, result.accepted)) return
+        val s = mutable.value
+        if (!result.accepted) {
+            mutable.value = s.copy(commandAt = null,
+                order = if (s.order.state == OrderState.OPEN_REQUESTED) s.order.copy(state = OrderState.READY) else s.order)
+            note("모의 차량 명령 거부: ${result.reasonCodes.joinToString()}")
+        } else note("모의 차량 명령 접수 · 후속 차량 상태 확인 대기")
+    }
+
+    private fun completeObservedCommand() {
+        val s = mutable.value
+        // A successful HTTP response alone never changes the displayed door or completes a handoff.
+        val action = bridgeSession.observe(s.vehicle.tailgate,
+            s.bridgeConnected && SafetyPolicy.fresh(clock(), s.vehicle.capturedAt, SafetyPolicy.VEHICLE_TTL)) ?: return
+        mutable.value = s.copy(commandAt = null,
+            order = s.order.copy(state = if (action == "OPEN") OrderState.OPEN else OrderState.COMPLETE))
+        note(if (action == "OPEN") "브리지 열림 상태 확인 · 적재 대기" else "브리지 닫힘 상태 + 사용자 수령 확인 · 인계 완료")
+    }
+
+    private fun sendBridgeCommand(action: String) {
+        val session = bridgeSession.sessionId ?: return
+        val request = UUID.randomUUID().toString()
+        if (!bridgeSession.begin(request, action, clock())) return
+        val generation = bridgeGeneration
+        viewModelScope.launch {
+            try {
+                val result = bridge.command(session, request, action)
+                if (generation == bridgeGeneration) applyBridgeResult(result)
+                // Only the next /state snapshot may complete this request.
+            } catch (e: CancellationException) { throw e
+            } catch (_: Exception) {
+                if (generation == bridgeGeneration) invalidateBridge("명령 결과 미확인 · 자동 재전송 없음 · 상태 동기화 중")
+            }
+        }
+    }
+
+    private fun scenarioPayload(): JSONObject {
+        val s = mutable.value
+        return JSONObject().put("orderId", s.order.id).put("orderItemsSummary", "우유 · 채소 · 식료품 / 24,000원 (모의 결제)")
+            .put("orderState", s.order.state.name).put("zoneConfirmed", s.zoneConfirmed)
+            .put("staffAuthenticated", s.staff?.let { it.expiresAt > clock() } ?: false)
+            .put("pendingRequestId", bridgeSession.pending?.id ?: JSONObject.NULL)
+            .put("commandStatus", if (bridgeSession.pending == null) "IDLE" else if (bridgeSession.timedOut(clock())) "UNKNOWN" else "PENDING")
+            .put("care", JSONObject().put("remainInVehicle", s.care.needs.remainInVehicle)
+                .put("trunkLoadingHelp", s.care.needs.trunkLoadingHelp)
+                .put("extraPreparationTime", s.care.needs.extraPreparationTime)
+                .put("response", s.care.response.name).put("customerReady", s.care.customerReady))
+    }
 }

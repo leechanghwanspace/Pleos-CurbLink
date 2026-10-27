@@ -25,6 +25,7 @@ fun CurbLinkMainScreen(vm: CurbLinkViewModel) {
         Column(Modifier.safeDrawingPadding().padding(18.dp).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(12.dp)) {
             Text("CurbLink", fontSize = 30.sp, color = MaterialTheme.colorScheme.primary)
             Text("차량에서 이어지는 픽업  |  독립 시연 APK · 모든 외부 연동은 모의", fontSize = 14.sp)
+            Text(s.bridgeStatus, color = MaterialTheme.colorScheme.secondary)
             Text("${s.vehicle.gear}  ·  ${s.vehicle.speedKmh.toInt()} km/h  ·  ${if (locked) "운전자 조작 잠금" else "정차 모드"}  ·  ${s.order.state}")
             if (locked) {
                 Text(assistanceLabel(s.care), fontSize = 20.sp)
@@ -52,6 +53,10 @@ fun CurbLinkMainScreen(vm: CurbLinkViewModel) {
             OutlinedButton(onClick = { evaluator = !evaluator }) { Text(if (evaluator) "운영자 패널 닫기" else "시연 운영자 패널 열기") }
             if (evaluator) Panel("시험 장치 · 운전자용 제품 화면 아님") {
                 Text("아래 조작은 가상 차량/매장 입력입니다. 실제 주행 중 사용하는 기능이 아닙니다.", color = Color(0xFFFFCB88))
+                OutlinedButton(onClick = { vm.externalBridge(!s.externalBridge) }) {
+                    Text(if (s.externalBridge) "독립 시연으로 초기화" else "외부 3D 브리지 연결 · 주문 초기화")
+                }
+                if (s.externalBridge) Text("차량 입력은 외부 시뮬레이터에서 변경하세요. 아래 차량 입력 버튼은 외부 모드에서 작동하지 않습니다.")
                 Controls {
                     OutlinedButton(onClick = { vm.gear(Gear.P, 0f) }) { Text("P · 0") }
                     OutlinedButton(onClick = { vm.gear(Gear.D, 40f) }) { Text("D · 40") }
@@ -152,6 +157,11 @@ fun CurbLinkMainScreen(vm: CurbLinkViewModel) {
     Text("⑦ 이번 개방 요청에 대한 사용자 승인", fontSize = 13.sp)
     Button(onClick = vm::approveOpen, enabled = enabled, modifier = Modifier.fillMaxWidth().heightIn(min = 64.dp)) { Text("확인 후 개방 요청 승인", fontSize = 20.sp) }
     Text("테일게이트: ${s.vehicle.tailgate}\n요청 전송은 실제 열림 확인과 다릅니다.", fontSize = 12.sp)
+    if (s.externalBridge && s.order.state == OrderState.OPEN) {
+        Button(onClick = vm::closeAndReceive, modifier = Modifier.fillMaxWidth().heightIn(min = 64.dp)) {
+            Text("적재·수령 확인 후 닫기 요청", fontSize = 20.sp)
+        }
+    }
 }
 
 private fun assistanceLabel(care: CarePickup): String = if (!care.needs.requested) "일반 픽업 · 배려 요청 없음" else when (care.response) {

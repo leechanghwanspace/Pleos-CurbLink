@@ -1,0 +1,22 @@
+{
+  "status": "integration_implemented_partial_validation",
+  "protocol": "curblink.vehicle.v1",
+  "files": [
+    "simulator/index.html",
+    "simulator/INTEGRATION.md"
+  ],
+  "mockVerified": false,
+  "externalBridgeVerified": false,
+  "openQuestions": [
+    "최종 APK 전체 수령 UI 여정 재검증 필요: 에뮬레이터 UI 덤프 오류로 자동시험 중단"
+  ],
+  "codexValidation": {
+    "androidTests": 29,
+    "antigravityCoreReview": "approved",
+    "websocketStateRoundtrip": true,
+    "apkBuild": true,
+    "apkFullUiJourney": false,
+    "browserRendering": true,
+    "bridgeTests": 16
+  }
+}
