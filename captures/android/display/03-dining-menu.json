@@ -1,0 +1,16 @@
+{
+  "source": "../03-dining-menu.png",
+  "source_sha256": "b71436dde12bd53c18caa76eb521138d873b0c7c9fb4c5b9ad3ccfb9c3ed1aa5",
+  "crop_box": [
+    108,
+    36,
+    2560,
+    1308
+  ],
+  "pixels": [
+    2452,
+    1272
+  ],
+  "processing": "Crop only; no resizing, sharpening or compositing",
+  "png_sha256": "6d402d1714a47c1526ed9d70887b7999273b58febbd7457c3904134ac788e35a"
+}

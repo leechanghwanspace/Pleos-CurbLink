@@ -1,0 +1,16 @@
+{
+  "source": "../01-home.png",
+  "source_sha256": "9484436131b0fd91c8b409212e19f703f2152b1660429d32ddf7b6f4c3049771",
+  "crop_box": [
+    108,
+    36,
+    2560,
+    1308
+  ],
+  "pixels": [
+    2452,
+    1272
+  ],
+  "processing": "Crop only; no resizing, sharpening or compositing",
+  "png_sha256": "174f02f299c3c449a5a915aa6caa1f0a33ee424ce417e680ca21c25e60977c74"
+}

@@ -2,7 +2,11 @@
 
 ## 실제 Android APK — android/
 
-배포 APK `release/CurbLink-Drive-0.2-demo.apk`를 Samsung Galaxy Note10+ 5G(SM-N976N)에 설치하여 촬영했습니다. 실제 AAOS/Pleos/차량 디스플레이에서 촬영한 것은 아닙니다.
+배포 APK `release/CurbLink-Drive-0.2-demo.apk`의 실행 캡처입니다.
+
+README는 `android/display/`의 **2452×1272px** PNG를 사용합니다. 2560×1380px 원본에서 상단 상태바·하단 내비게이션 바와 바깥 여백만 제거했습니다. 크롭 좌표는 `(108, 36, 2560, 1308)`이며 리사이즈·합성은 하지 않았습니다. `python scripts/crop-drive-captures.py`로 재현합니다.
+
+아래는 보관용 원본(`android/`)의 촬영 정보입니다. README용 크롭은 공식 제출 이미지 크기와 다릅니다. 실제 AAOS/Pleos/차량 디스플레이 촬영 자료는 아닙니다.
 
 - Pleos 공식 이미지 규격 중 **2560×1380px**를 적용했습니다. 이미지당 8MB 이하 PNG입니다.
 - 기기 논리 디스플레이를 가로 2560×1380px / 240dpi로 설정해 앱이 해당 크기로 직접 렌더링하도록 했습니다.

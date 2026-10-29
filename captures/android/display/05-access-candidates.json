@@ -1,0 +1,16 @@
+{
+  "source": "../05-access-candidates.png",
+  "source_sha256": "335ad9c9196df53fc2d740eecd767a1371d1c3bf72d8bfe3e08a335e1704e6b8",
+  "crop_box": [
+    108,
+    36,
+    2560,
+    1308
+  ],
+  "pixels": [
+    2452,
+    1272
+  ],
+  "processing": "Crop only; no resizing, sharpening or compositing",
+  "png_sha256": "ceb32fa423efa79e1deae1869a19de427a563591091d3fa628eeb908e0162834"
+}

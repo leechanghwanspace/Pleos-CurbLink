@@ -1,0 +1,16 @@
+{
+  "source": "../06-handoff.png",
+  "source_sha256": "c17af8c0f0199a8c0d0318ea28847cbb652d45d53d02b6b35c2dfeb06026a1dc",
+  "crop_box": [
+    108,
+    36,
+    2560,
+    1308
+  ],
+  "pixels": [
+    2452,
+    1272
+  ],
+  "processing": "Crop only; no resizing, sharpening or compositing",
+  "png_sha256": "a0111fd755de8d2bcb64c253773a814ce552032ce3b6a7c3ac0f54056177f809"
+}

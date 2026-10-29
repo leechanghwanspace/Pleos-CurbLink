@@ -1,0 +1,16 @@
+{
+  "source": "../02-dining-location.png",
+  "source_sha256": "f4d60a777acacb9af0a2f047721cf061ece9ec14f8fe2d333df45cd14cbe6927",
+  "crop_box": [
+    108,
+    36,
+    2560,
+    1308
+  ],
+  "pixels": [
+    2452,
+    1272
+  ],
+  "processing": "Crop only; no resizing, sharpening or compositing",
+  "png_sha256": "c7293a7333a823c69740c97dbece2e42a15215a66ad09557e5d5e7bcbc6fad37"
+}

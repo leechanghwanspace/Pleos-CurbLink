@@ -21,31 +21,31 @@
 
 ## 실제 APK 실행 화면
 
-아래는 배포 중인 **0.2 APK를 Samsung Galaxy Note10+ 5G(SM-N976N)에 직접 설치해 촬영한 원본 PNG**입니다. 화면을 2560×1380px / 240dpi로 설정한 뒤 ADB screencap 바이트를 그대로 저장했습니다. 확대·리사이즈·JPEG 재압축을 하지 않았습니다.
+**0.2 APK 실행 화면 · 2452×1272px · PNG**
 
-Pleos 공식 스크린샷 허용 크기 중 **2560×1380px**를 적용했습니다. 이는 이미지 제출 규격이며 실제 Pleos 차량/AAOS 실행 인증이나 모든 차량의 공통 패널 규격을 뜻하지 않습니다. 아래에는 Android 시스템 바도 포함됩니다. [공식 이미지 규격](https://document.pleos.ai/en/docs/pleos-only/distribute/app-review-guide/review-app-registration-info)
+상단 상태바·하단 내비게이션 바와 바깥 여백을 제외한 앱 표시 영역입니다. 확대나 리사이즈 없이 잘라냈습니다.
 
 ### 목적지 설정
 
-[![실제 APK 홈 화면](captures/android/01-home.png)](captures/android/01-home.png)
+[![실제 APK 홈 화면](captures/android/display/01-home.png)](captures/android/display/01-home.png)
 
 ### 차량 내 식사 주문
 
-[![실제 APK 위치 확인](captures/android/02-dining-location.png)](captures/android/02-dining-location.png)
+[![실제 APK 위치 확인](captures/android/display/02-dining-location.png)](captures/android/display/02-dining-location.png)
 
-[![실제 APK 조리·배달 시간 기반 메뉴 추천](captures/android/03-dining-menu.png)](captures/android/03-dining-menu.png)
+[![실제 APK 조리·배달 시간 기반 메뉴 추천](captures/android/display/03-dining-menu.png)](captures/android/display/03-dining-menu.png)
 
-[![실제 APK 주문 확인 후 도착 동기화](captures/android/04-dining-order.png)](captures/android/04-dining-order.png)
+[![실제 APK 주문 확인 후 도착 동기화](captures/android/display/04-dining-order.png)](captures/android/display/04-dining-order.png)
 
 ### 배리어프리 하차
 
-[![실제 APK 하차 지원 조건과 베이 후보](captures/android/05-access-candidates.png)](captures/android/05-access-candidates.png)
+[![실제 APK 하차 지원 조건과 베이 후보](captures/android/display/05-access-candidates.png)](captures/android/display/05-access-candidates.png)
 
 ### 현장 인계
 
-[![실제 APK 현장 인계 위치 카드](captures/android/06-handoff.png)](captures/android/06-handoff.png)
+[![실제 APK 현장 인계 위치 카드](captures/android/display/06-handoff.png)](captures/android/display/06-handoff.png)
 
-각 이미지를 클릭하면 원본 크기로 볼 수 있습니다. 촬영 기기·Android 버전·APK 해시와 이미지 해시는 같은 폴더의 JSON 기록을 참고하세요. 개인 위치 권한이나 외부 공유·실제 주문은 사용하지 않았습니다.
+이미지를 클릭하면 전체 해상도로 볼 수 있습니다. [캡처 정보](captures/README.md)
 
 ## 웹 참고 시연 화면
 

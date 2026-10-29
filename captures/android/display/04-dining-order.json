@@ -1,0 +1,16 @@
+{
+  "source": "../04-dining-order.png",
+  "source_sha256": "811b7f8bbe89b8750fa3bf105ca543163f6a89d537811e13a76af139e406bfab",
+  "crop_box": [
+    108,
+    36,
+    2560,
+    1308
+  ],
+  "pixels": [
+    2452,
+    1272
+  ],
+  "processing": "Crop only; no resizing, sharpening or compositing",
+  "png_sha256": "f66cdd5c167a1f577d534cafcee276224d251b949f588a00a4e3ac667d2c1f74"
+}
