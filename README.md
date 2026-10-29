@@ -1,3 +1,20 @@
+# CurbLink Drive · 2026 공모전 프로토타입
+
+다른 PC에서 작업을 이어갈 때는 [개발 인수인계](docs/DEVELOPMENT_HANDOFF.md)를 먼저 확인하세요.
+
+현재 Android 진입점은 Kotlin/Jetpack Compose 기반 `MobilityApp`입니다. 웹뷰를 포장한 APK가 아닙니다.
+
+- APK: `release/CurbLink-Drive-0.2-demo.apk` (debug 서명, 패키지 `io.curblink.demo`, 버전 코드 2)
+- 새 화면: 목적지/도착 의도, 모의 차선 안내, 도착 맞춤 식사 주문, 배리어프리 하차, 현장 위치 인계
+- 모의/실제 경계: Android 위치 권한과 플랫폼 음성 서비스는 기기에서 지원할 때 사용합니다. 지도·경로·주문·차량 상태·주변 카메라·도어/리프트는 모의이며 Pleos SDK 실차 연동 완료나 앱 마켓 인증을 주장하지 않습니다.
+- 첨부 화면의 기존 3D 외관/트렁크 인터록 시뮬레이션과 진입 버튼은 웹에서 제거했습니다. 기존 도메인 안전 로직과 테스트는 회귀 검증을 위해 보존합니다.
+- 설치·빌드·심사 체크 사항: `release/README.txt`
+- 공고: https://appdevchallenge.auto-hmg.io/notice/c0a1a000-2026-4923-8000-000000000001
+
+아래 내용은 v0.1 이전 구현 기록이며 최신 APK 설명과 구분해 읽어 주세요.
+
+---
+
 # Pleos CurbLink (플레오스 커브링크)
 
 > **현재 소스: 배려 픽업 + 로컬 3D 브리지 시연 (2026-10-27)**

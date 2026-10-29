@@ -1,0 +1,31 @@
+CurbLink Drive 0.2 — build verification (2026-10-29 KST)
+
+PASS: assembleDebug + compileDebugUnitTestKotlin + lintDebug (Gradle 8.9 / JDK17 / SDK35)
+PASS: JUnitCore — 40 tests (29 retained domain/session + 11 native mobility rules)
+PASS: APK Signature Scheme v2 verification (Android Debug certificate)
+PASS: zipalign -c -P 16 4
+PASS: APK archive manifest/DEX and no simulator WebView assets
+PASS: legacy exterior/trunk simulator JSX removed; updated web App compiles
+Lint report: 0 errors, 4 warnings
+APK bytes: 25126333
+APK SHA256: d23c65991dab48f0c9fd5689a70c1cecc8a3a2c94e8d727ccae4d09435bf864b
+
+package: name='io.curblink.demo' versionCode='2' versionName='0.2-contest-demo' platformBuildVersionName='15' platformBuildVersionCode='35' compileSdkVersion='35' compileSdkVersionCodename='15'
+sdkVersion:'29'
+targetSdkVersion:'35'
+application-label:'CurbLink Drive'
+launchable-activity: name='io.curblink.demo.MainActivity'  label='' icon=''
+native-code: 'arm64-v8a' 'armeabi-v7a' 'x86' 'x86_64'
+
+Verifies
+Verified using v1 scheme (JAR signing): false
+Verified using v2 scheme (APK Signature Scheme v2): true
+Verified using v3 scheme (APK Signature Scheme v3): false
+Verified using v3.1 scheme (APK Signature Scheme v3.1): false
+Verified using v4 scheme (APK Signature Scheme v4): false
+Verified for SourceStamp: false
+Number of signers: 1
+
+NOT VERIFIED: Android/AAOS/Pleos runtime UI and physical device installation.
+A stock Android 35 software-emulated AVD remained device offline without a hypervisor driver.
+This build is not evidence of real Pleos SDK, vehicle controls, map/traffic, ordering/payment or camera integration.

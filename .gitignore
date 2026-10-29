@@ -22,3 +22,8 @@ Thumbs.db
 
 # Local agent queue state, worktrees, machine paths and logs
 .collaboration/
+
+# Local emulator state and generated distribution archives
+work/
+release/*-source.zip
+release/*-source.zip.sha256
