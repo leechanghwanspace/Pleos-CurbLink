@@ -1,0 +1,56 @@
+{
+  "signatureVerified": true,
+  "baseCommit": "af6447f07e79d4d536bbf4f7c4486be019feebcf",
+  "versionCode": 5,
+  "lintWarnings": 3,
+  "junitTests": 65,
+  "apk": "CurbLink-Drive-0.4-pleos-connected-preview.apk",
+  "externalDrivenVehicleFlows": 18,
+  "capturedAtKst": "2026-10-29T23:50:00+09:00",
+  "captures": [
+    {
+      "width": 1682,
+      "height": 1210,
+      "file": "01-pleos-connected.png",
+      "sha256": "5D184B807DA7E1C1C5278011FFFE806B2BCEB3354CB38FD2B832FFA589E8EF5B"
+    },
+    {
+      "width": 1682,
+      "height": 1210,
+      "file": "01-connection-wait.png",
+      "sha256": "05AF9C065098A2C95E90C71AFA3CF41BD8F4FBA36EC847B2D3FF4A57A935679B"
+    },
+    {
+      "width": 1682,
+      "height": 1210,
+      "file": "02-dining.png",
+      "sha256": "E81CFBA68A67BAE7880E102B71EB11EDA234FD66B0E5841B9C2C2F1C771F1223"
+    },
+    {
+      "width": 1682,
+      "height": 1210,
+      "file": "03-access.png",
+      "sha256": "14471F7CEFF1AA24C06F2C592FC7D70800A6246E5EEEBB23C190C66D3001299F"
+    },
+    {
+      "width": 1682,
+      "height": 1210,
+      "file": "04-handoff.png",
+      "sha256": "FD0B85F50E944E4A8BB7CDFD9A9785C24C63E17692F80CDAA9611C70CEA343E5"
+    }
+  ],
+  "instrumentationAssertions": 86,
+  "platformConnectionAssertions": 16,
+  "branch": "codex/vehicle-app-only",
+  "lintErrors": 0,
+  "realVehicleSdkConnected": true,
+  "pleosNaviHelperConnected": true,
+  "orderFacilityProviderConnected": false,
+  "altered": false,
+  "simulationEngineInProductApk": false,
+  "zipAlignmentVerified": true,
+  "source": "Android PixelCopy of application window on Pleos Connect 2.1.0 API34",
+  "apkSha256": "B2E5EC56D014B39802C410AED8384AD1D18FF65929798251502E9A2969140688",
+  "versionName": "0.4-pleos-connected-preview",
+  "realProcessRestartPreservedOrder": true
+}

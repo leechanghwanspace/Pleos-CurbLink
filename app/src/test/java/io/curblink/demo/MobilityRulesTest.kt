@@ -13,11 +13,12 @@ class MobilityRulesTest {
         assertFalse(MobilityRules.assess(AccessPreferences()).first { it.bay.id == "DOOR" }.eligible)
         assertTrue(MobilityRules.assess(AccessPreferences(), MobilityCatalog.bays.map { it.copy(available = false) }).none { it.eligible })
     }
-    private fun review() = MobilityState(phase = DrivePhase.DRIVING, remaining = 900, elapsed = 180, selectedMenu = MobilityCatalog.menus.first(), mealStep = DiningStep.REVIEW)
+    private fun review() = MobilityState(gear=VehicleGear.D, phase = DrivePhase.DRIVING, remaining = 900, elapsed = 180, selectedMenu = MobilityCatalog.menus.first(), mealStep = DiningStep.REVIEW)
     @Test fun drivingDriverCannotConfirmWithTouch() { assertNull(MobilityRules.confirmOrder(review(), false)); assertNotNull(MobilityRules.confirmOrder(review(), true)) }
-    @Test fun passengerCanConfirmWhileDrivingAndLateMenuIsExplicit() {
+    @Test fun demoPassengerCannotBypassDriverDisplayAndLateMenuIsExplicit() {
         val s = review().copy(role = CabinRole.PASSENGER, selectedMenu = MobilityCatalog.menus.last())
-        val order = MobilityRules.confirmOrder(s, false)!!
+        assertNull(MobilityRules.confirmOrder(s, false))
+        val order = MobilityRules.confirmOrder(s, true)!!
         assertEquals(600, order.lateAtConfirmation); assertEquals(s.elapsed, order.dispatchAt)
     }
     @Test fun orderDispatchMatchesArrivalAndDuplicateIsRejected() {
@@ -26,7 +27,7 @@ class MobilityRulesTest {
         assertNull(MobilityRules.confirmOrder(s.copy(order = order), true))
     }
     @Test fun invalidVehicleBlocksAllOrderChannels() { assertNull(MobilityRules.confirmOrder(review().copy(vehicleValid = false), true)) }
-    private fun exit() = MobilityState(phase = DrivePhase.ARRIVED, accessTrip = true, bay = MobilityCatalog.bays[1], spaceChecked = true, rampReady = true, staffAccepted = true)
+    private fun exit() = MobilityState(gear=VehicleGear.P, phase = DrivePhase.ARRIVED, accessTrip = true, bay = MobilityCatalog.bays[1], spaceChecked = true, rampReady = true, staffAccepted = true)
     @Test fun exitRequiresCurrentConditionsAndCannotRepeat() {
         assertTrue(MobilityRules.canExit(exit()))
         assertFalse(MobilityRules.canExit(exit().copy(obstacle = true)))

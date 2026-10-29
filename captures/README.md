@@ -1,5 +1,14 @@
 # 캡처 출처와 촬영 규격
 
+## 차량 앱 프리뷰 — android/vehicle-app-preview/
+
+사용자 확정 방향에 따라 시뮬레이션을 분리한 `0.4-pleos-connected-preview` (versionCode 5)의 실제 Pleos 2.1.0 앱 창 캡처다. Android PixelCopy로 앱 창만 1682×1210px PNG 원본으로 수집했으며 크롭·합성·리사이즈를 하지 않았다. 전체 디스플레이의 Pleos 차량 홈 패널은 앱 창에 포함하지 않는다.
+
+- `01-pleos-connected.png`: Pleos Connect 2.1.0 에뮬레이터에서 실제 AAOS `CarService`(기어 P · 정차, UX 제한)와 `NaviHelper`(목적지 `신트리공원`, 남은 시간 51분 0초, 남은 거리 30.0km)가 IPC로 연결된 화면. 주문·시설 서비스는 미연결(`확인 대기`)로 구분 표시된다.
+- `01-connection-wait.png`: 차량 및 내비게이션 서비스 연결 전/단절 시 조작을 제한하는 기본 화면.
+- `02-dining.png` ~ `04-handoff.png`: 별도 시험 APK(`VehicleAppInstrumentation`)가 외부에서 검증용 입력을 공급한 식사·하차·인계 화면이다. 제품 APK에 가상 장면·시나리오·발표 조작은 없다. 캡처의 개발 검증용 표시를 실제 주문/시설 서비스 연동 증거로 해석하지 않는다.
+- APK/PNG 해시와 시험 출처는 해당 폴더의 `verification.json`에 있다. 공식 제출 이미지 규격·폼팩터 검증을 대체하지 않는다.
+
 ## 실제 Android APK — android/
 
 배포 APK `release/CurbLink-Drive-0.2-demo.apk`의 실행 캡처입니다.
