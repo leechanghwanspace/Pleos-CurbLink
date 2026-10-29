@@ -1,217 +1,128 @@
-# CurbLink Drive · 2026 공모전 프로토타입
+# CurbLink Drive
 
-다른 PC에서 작업을 이어갈 때는 [개발 인수인계](docs/DEVELOPMENT_HANDOFF.md)를 먼저 확인하세요.
+**목적에 맞는 마지막 500m — 목적지 도착, 식사 시간 맞춤, 배리어프리 하차와 현장 인계를 연결하는 차량용 앱 프로토타입**
 
-현재 Android 진입점은 Kotlin/Jetpack Compose 기반 `MobilityApp`입니다. 웹뷰를 포장한 APK가 아닙니다.
+현재 버전은 **0.2-contest-demo**입니다. Kotlin / Jetpack Compose 네이티브 Android 앱과 별도 웹 참고 시뮬레이터로 구성됩니다.
 
-- APK: `release/CurbLink-Drive-0.2-demo.apk` (debug 서명, 패키지 `io.curblink.demo`, 버전 코드 2)
-- 새 화면: 목적지/도착 의도, 모의 차선 안내, 도착 맞춤 식사 주문, 배리어프리 하차, 현장 위치 인계
-- 모의/실제 경계: Android 위치 권한과 플랫폼 음성 서비스는 기기에서 지원할 때 사용합니다. 지도·경로·주문·차량 상태·주변 카메라·도어/리프트는 모의이며 Pleos SDK 실차 연동 완료나 앱 마켓 인증을 주장하지 않습니다.
-- 첨부 화면의 기존 3D 외관/트렁크 인터록 시뮬레이션과 진입 버튼은 웹에서 제거했습니다. 기존 도메인 안전 로직과 테스트는 회귀 검증을 위해 보존합니다.
-- 설치·빌드·심사 체크 사항: `release/README.txt`
-- 공고: https://appdevchallenge.auto-hmg.io/notice/c0a1a000-2026-4923-8000-000000000001
+[APK 다운로드](release/CurbLink-Drive-0.2-demo.apk) · [설치·시연 안내](release/README.txt) · [개발 인수인계](docs/DEVELOPMENT_HANDOFF.md) · [검증 기록](release/BUILD-VERIFICATION.txt)
 
-아래 내용은 v0.1 이전 구현 기록이며 최신 APK 설명과 구분해 읽어 주세요.
+## 현재 기능
 
----
+| 기능 | 구현 내용 |
+|---|---|
+| 목적지·도착 의도 | 집·문화센터·한강 등 목적지와 픽업 / 잠시 정차 / 주차 / 배리어프리 하차 선택 |
+| 경로·차선 안내 | 모의 차량 상태와 도착 목적에 따른 경로·권장 차선 HUD |
+| 도착 맞춤 식사 | 위치 탐색 → 목적지 ETA → 조리·배달 시간 기반 메뉴 추천 → 명시적 주문 확인 → 도착 시간 비교 |
+| 역할별 조작 | 운전자 음성 중심 / 동승자 디스플레이 조작. 플랫폼 음성과 시연 입력 구분 |
+| 배리어프리 하차 | 계단·경사·보행 거리·측면 공간·필요한 지원에 따른 베이 추천, 안전 조건 재확인 후 명시적 승인 |
+| 현장 인계 | 모의 주변 상황과 위치 카드로 인계 위치 설명, 사용자 선택으로 공유·수령 확인 |
 
-# Pleos CurbLink (플레오스 커브링크)
+지도·경로·교통·차량 상태·주문/결제·주변 카메라·도어/리프트는 **모의**입니다. Android 위치와 플랫폼 음성은 기기 권한과 서비스 지원 시 사용합니다. 실제 Pleos SDK·Gleo·CarPay·SVM·차량 제어 연동 완료를 의미하지 않습니다.
 
-> **현재 소스: 배려 픽업 + 로컬 3D 브리지 시연 (2026-10-27)**
-> 최신 APK는 `release/Pleos-CurbLink-bridge-demo.apk`입니다. Android 테스트 29개와 브리지 테스트 16개, APK 빌드 및 Antigravity의 Android/브리지 소스 리뷰를 통과했습니다. 브라우저 렌더링·WebSocket 상태 왕복을 확인했지만 최종 APK 전체 인계 UI 자동시험은 에뮬레이터 덤프 오류로 미완료입니다. [작업 정리·실행 순서·제한사항](docs/DEMO_HANDOVER.md)을 먼저 확인하세요. 이전 APK/캡처 및 아래 17개 통과 기록은 v0.1 자료입니다.
->
-> 미선택 시 일반 픽업 동작은 유지됩니다. 배려 요청은 매장 수락과 고객의 별도 준비 확인 전까지 인계가 차단되며, 도착/매장 상품 준비 완료만으로 준비 확인되지 않습니다. 상세 동작과 시연 절차: [배려 픽업 MVP](docs/CARE_PICKUP.md).
+## 최신 시연 화면
 
-자동 협업 구성과 실행 방법은 [Codex × Antigravity 협업 안내](collaboration/README.md)를 참고하세요. 자동 변경은 검토·빌드·시험 후 `automation/care-pickup` 브랜치에 게시하며, `main`에는 자동 병합하지 않습니다.
+아래는 현재 저장소의 **웹 시뮬레이터 참고 캡처**입니다. 네이티브 APK 실행 화면이 아니며 APK와 화면 배치·세부 동작이 다릅니다. 이전 외관/트렁크 인터록 화면은 웹 진입 화면에서 제거했습니다.
 
-차량 상태와 센서 인터록 기반의 비하차 신뢰 인계(Trusted Handoff) 커넥티드 서비스  
-현대자동차그룹 오픈 앱 개발 공모전(HMG App Dev Challenge) 출품작 · 1인 개발 프로토타입
+### 운전자 시점·차선 안내
 
----
+![운전자 시점과 차선 HUD — 웹 참고 시연](captures/driver-view.jpg)
 
-[![Platform](https://img.shields.io/badge/Platform-Android%20Automotive%20OS-3DDC84?logo=android&logoColor=white)](https://source.android.com/docs/automotive)
-[![Target SDK](https://img.shields.io/badge/Target%20SDK-API%2035%20(min%2029)-blue)](https://developer.android.com/)
-[![Compose](https://img.shields.io/badge/UI-Jetpack%20Compose-4285F4?logo=jetpackcompose&logoColor=white)](https://developer.android.com/jetpack/compose)
-[![Tests](https://img.shields.io/badge/Domain%20Tests-17%20Passed-brightgreen)](docs/검증결과.txt)
-[![Demo APK](https://img.shields.io/badge/Release-v0.1--demo-orange)](release/Pleos-CurbLink-demo.apk)
+가상 도로·건물·수목·보행자 환경에서 목적별 접근 경로를 시연합니다.
 
----
+### 차량 내부 디스플레이에서 식사 주문
 
-## 1. 프로젝트 개요
+![위치 탐색 단계 — 웹 참고 시연](captures/meal-cabin-gps.jpg)
 
-Pleos CurbLink는 차량 내 음성 주문 요청과 매장 준비 상태를 차량의 주차(P단)·차속·센서 인터록·사용자 승인 조건과 결합하여, 지정된 픽업 공간(커브사이드)에서 운전자의 하차 없이 테일게이트를 통해 안전하게 물품을 수령하도록 지원하는 Pleos Connect 네이티브 앱 프로토타입입니다.
+![도착 시간과 조리·배달 시간을 고려한 메뉴 추천 — 웹 참고 시연](captures/meal-cabin-menu.jpg)
 
-### 기획 배경 및 문제 정의
-- **영유아·고령자 동승 차량의 하차 위험성**: 돌봄 대상자가 동승한 차량의 경우 매장 방문 수령을 위한 짧은 하차도 돌봄의 중단과 안전 공백으로 이어집니다.
-- **기존 스마트폰 앱 중심 주문의 한계**: 모바일 기기는 차량의 변속 기어(P/D), 차속, 주변 장애물 감지, 테일게이트 개방 상태를 직접 다루지 못하며 주행 중 운전자 시각 분산을 유발합니다.
-- **CurbLink의 접근 방식**: 매장 준비 완료 → 지정 구역 도착 → 6개 안전 인터록 검증 → 사용자 최종 승인 → 인계 완료로 이어지는 상태 머신을 구현하여 안전성과 조작 편의성을 확보합니다.
+위치 탐색부터 목적지·메뉴 선택, 주문 확인과 도착까지 진행합니다. 운전자·동승자 모드를 구분하며 실제 매장에 주문을 전송하지 않습니다.
 
-> **시연 범위 안내**  
-> 본 결과물은 독립 실행이 가능한 시연용 데모 앱(v0.1-demo)입니다. 실제 Pleos SDK, Gleo 음성, CarPay, GPS/UWB, SVM 실차 인터페이스는 시연을 위한 모의 입력(Simulated Adapter)으로 구성되어 있으며, 양산 전 OEM 공식 안전 인증 및 실차 시험이 필요한 프로토타입입니다.
+### 배리어프리 하차·입구 이동
 
----
+![거리·경사·측면 공간을 비교하는 하차 후보 — 웹 참고 시연](captures/access-comparison.jpg)
 
-## 2. 화면 구성 및 실행 흐름
+![무단차 하차 베이와 입구 이동 완료 — 웹 참고 시연](captures/access-arrival.jpg)
 
-Android Automotive OS (API 33, Google Automotive 시스템 이미지, 1600×1000) 구동 화면
+필요한 공간과 도움에 따라 베이·경로가 달라집니다. 정차·안전 조건 확인과 사용자 승인 후 입구 이동을 시연합니다. 후보 지점과 수치는 가상 데이터입니다.
 
-| 01. 정차 중 주문/결제 | 02. 주행 중 조작 잠금 |
-|:---:|:---:|
-| ![01-parked-order](captures/01-parked-order.png) | ![02-driving-lock](captures/02-driving-lock.png) |
-| P단 & 0km/h: 주문 요약, 결제 승인, 안전 사전조건 실시간 표시 | 가상 D단 & 40km/h: 운전자 주의분산 방지를 위한 조작 마스킹 |
-| 03. 장애물 감지 시 개방 보류 | 04. 6대 안전조건 충족 및 승인 활성화 |
-| ![03-obstacle-hold](captures/03-obstacle-hold.png) | ![04-handoff-ready](captures/04-handoff-ready.png) |
-| 후방 센서 장애물 감지 또는 3초 만료 시 개방 버튼 비활성화 | 전 조건 충족 및 6자리 OTP 인증 완료 시 사용자 승인 버튼 활성화 |
-| 05. 테일게이트 개방 및 인계 완료 | 06. 신호 대기 중 조작 잠금 유지 |
-| ![05-handoff-complete](captures/05-handoff-complete.png) | ![06-signal-stop-lock](captures/06-signal-stop-lock.png) |
-| 사용자 명시 승인 → 열림 응답 → 수령 확인 후 인계 완료 | D단 & 0km/h: 차량 정차 상태라도 D단이면 잠금 상태 유지 |
+### 주소 설명이 어려운 현장 인계
 
----
+![모의 주변 시야와 현장 인계 위치 카드 — 웹 참고 시연](captures/river-surround-handoff.jpg)
 
-## 3. 안전 인터록 및 상태 머신 아키텍처
+한강 등에서 주변 시야와 위치 설명 카드로 인계 지점을 공유합니다. 카메라 화면은 가상 장면이며 실제 서라운드뷰 연동이 아닙니다.
 
-```mermaid
-flowchart TD
-    A[모의 결제 승인] --> B[PAID]
-    C[매장 READY 이벤트] --> D{주문·버전·만료·중복 검증}
-    B --> D
-    D --> E[READY]
-    F[가상 차량 및 센서 입력] --> G[6대 안전 사전조건 실시간 평가]
-    H[주문별 1회용 직원 인증 OTP] --> G
-    E --> I{지정 구역 A-3 확인 & 테일게이트 닫힘}
-    G --> I
-    I --> J[승인 버튼 활성화]
-    J --> K[사용자 클릭: 7번째 필수 조건]
-    K --> L{클릭 순간 전체 조건 재평가}
-    L -->|불충족| M[요청 차단 및 보류]
-    L -->|충족| N[OPEN_REQUESTED]
-    N -->|5초 내 모의 열림 응답 수신| O[OPEN]
-    N -->|시간 초과 / 미응답| P[READY 복귀 및 직원 재인증]
-    O --> Q[모의 닫힘 + 수령 확인]
-    Q --> R[COMPLETE: 인계 완료]
-```
+## 실행
 
-### 안전 사전조건 (6+1 Prerequisite Logic)
-1. **차속 0 및 최신 차량 상태**: 차속 0.0 km/h 및 1초 이내 단조 시계(`SystemClock.elapsedRealtime()`) 갱신 데이터
-2. **P단 및 UX 제한 해제**: 변속 기어가 P단에 위치하고 AAOS Car UX Restrictions가 해제된 상태
-3. **센서 데이터 유효성**: 최근 3.0초 이내에 수신된 센서 스트림
-4. **장애물 미검출**: 확인된 후방 작업 범위 내 장애물 미검출(`CLEAR_IN_VERIFIED_RANGE`)
-5. **주문별 직원 인증 유효**: 주문 ID 및 리비전에 귀속된 6자리 일회용 코드 (60초 유효, 5회 실패 시 차단)
-6. **OEM 제어 권한 허용**: 차량 제어기 인터록 허용 상태
-7. **사용자의 명시적 승인**: 사전 조건 만족 시 승인 버튼이 활성화되며, 클릭 시점에 전 조건을 재평가하여 최종 승인합니다. 원격 자동 개방이나 승인 선저장은 허용되지 않습니다.
+### Android APK
 
----
+Android 10(API 29) 이상, target SDK 35, 패키지 `io.curblink.demo`, 버전 코드 2의 **debug 서명 APK**입니다.
 
-## 4. 빠른 시작 가이드
-
-### APK 설치 및 시연 순서
-1. [release/Pleos-CurbLink-demo.apk](release/Pleos-CurbLink-demo.apk)를 Android 10(API 29) 이상의 기기 또는 에뮬레이터에 설치합니다.
-   ```powershell
-   adb install -r release/Pleos-CurbLink-demo.apk
-   ```
-2. 앱 실행 후 `모의 결제 승인`을 클릭합니다 (PAID 상태 전환).
-3. 우측 상단 `시연 운영자 패널 열기` → `매장 준비 완료` → `구역 확인 전환`을 차례로 클릭합니다 (A-3 주차 확인).
-4. `직원 코드 발급`으로 생성된 6자리 코드를 인계 화면에 입력하고 `코드 확인`을 클릭합니다.
-5. 6개 사전 조건 충족 시 `확인 후 개방 요청 승인` 버튼이 활성화됩니다.
-6. 버튼 클릭 후 5초 이내에 운영자 패널의 `차량 열림 응답`을 클릭합니다.
-7. `닫힘 + 수령 확인`을 누르면 인계 절차가 완료됩니다.
-
----
-
-## 5. 프로젝트 빌드 및 단위 테스트
-
-### 기술 스택
-- **언어 및 런타임**: Kotlin 2.0.21 / JDK 17
-- **UI 프레임워크**: Jetpack Compose (BOM 2024.12.01) / Material 3
-- **아키텍처**: Android Jetpack ViewModel, Kotlin Coroutines, StateFlow (단방향 UDF)
-- **빌드 도구**: Gradle 8.9 / Android Gradle Plugin 8.7.3
-- **호환 환경**: compileSdk 35 / minSdk 29 (Android Automotive OS)
-
-### 소스코드 빌드
 ```powershell
-./gradlew.bat assembleDebug
+adb install -r release/CurbLink-Drive-0.2-demo.apk
+adb shell am start -n io.curblink.demo/.MainActivity
 ```
-빌드 산출물 위치: `app/build/outputs/apk/debug/app-debug.apk`
 
-### 도메인 단위 테스트
-Windows 환경에서 실행 가능한 도메인 단위 시험 스크립트를 제공합니다.
+홈 / 경로 / 도착 식사 / 배리어프리 하차 / 현장 인계 화면에서 시연합니다. 상세 단계는 [배포 안내](release/README.txt)를 확인하세요.
+
+### 웹 참고 시뮬레이터
+
+저장소 루트에서 실행합니다. Android 앱은 이 서버 없이 실행됩니다.
+
 ```powershell
-./run-domain-tests.ps1
-```
-테스트 범위: 주행 잠금, 신호 대기 잠금, P단 해제, 센서 만료(3초), 장애물 감지 차단, OEM 권한 거부, 중복 결제 멱등성, 원격 개방 이벤트 차단, 승인 전/후 상태 전이 등 17개 전 항목 통과 (상세: [docs/검증결과.txt](docs/검증결과.txt)).
-
----
-
-## 6. 디렉토리 구조
-
-```text
-Pleos-CurbLink/
-├── README.md                           # 프로젝트 안내 및 기술 명세서
-├── build.gradle.kts                    # 루트 Gradle 빌드 스크립트
-├── settings.gradle.kts                 # 모듈 설정 (app)
-├── gradle.properties                   # 빌드 파라미터 설정
-├── gradlew, gradlew.bat                # Gradle 래퍼
-├── run-domain-tests.ps1                # 단위 시험 실행 스크립트
-│
-├── app/                                # AAOS 데모 애플리케이션 모듈
-│   ├── build.gradle.kts
-│   └── src/
-│       ├── main/
-│       │   ├── AndroidManifest.xml     # 앱 매니페스트
-│       │   └── java/io/curblink/demo/
-│       │       ├── MainActivity.kt               # 진입점 Activity
-│       │       ├── CurbLinkMainScreen.kt         # 정차 UI, 주행 락, 운영자 패널
-│       │       ├── CurbLinkViewModel.kt          # 상태 머신 및 비즈니스 로직
-│       │       ├── CurbLinkModels.kt             # 차량/센서/주문 데이터 모델
-│       │       └── SafetyAndPaymentEngines.kt    # 인터록 평가기, 멱등 결제 어댑터
-│       └── test/java/io/curblink/demo/
-│           └── DomainTest.kt                     # 17개 단위 테스트
-│
-├── docs/                               # 공모전 제출 기획서 및 심사 자료
-│   ├── 02_앱프로젝트소개_1인개발.txt    # 공모전 심사자료 전문 (1인 개발 상세 기획)
-│   ├── ARCHITECTURE.md                 # 상태 전이 및 OEM 연동 선행조건 표
-│   ├── 검증결과.txt                     # 단위 테스트 및 빌드 검증 보고서
-│   └── test-results/
-│       └── junit-direct.log            # JUnit 테스트 통과 로그
-│
-├── captures/                           # AAOS AVD 구동 캡처 이미지
-│   ├── 01-parked-order.png
-│   ├── 02-driving-lock.png
-│   ├── 03-obstacle-hold.png
-│   ├── 04-handoff-ready.png
-│   ├── 05-handoff-complete.png
-│   ├── 06-signal-stop-lock.png
-│   └── 캡처설명.txt
-│
-├── scripts/                            # 개발 및 검증 자동화 도구
-│   ├── capture_android.py              # AVD UIAutomator 및 screencap 자동화
-│   ├── package_curblink.py             # 패키징 및 SHA256 검증 스크립트
-│   ├── ready_capture.py                # 캡처 상태 주입 스크립트
-│   └── setup_tools.py                  # 환경 설정 보조 도구
-│
-└── release/                            # 독립 시연용 릴리즈 바이너리
-    ├── Pleos-CurbLink-demo.apk         # 시연용 디버그 APK (v0.1-demo)
-    └── SHA256SUMS.txt                  # APK 무결성 해시 (SHA-256)
+python -m http.server 8000
 ```
 
----
+<http://127.0.0.1:8000/simulator/> 접속. React·Babel·Tailwind CDN 로딩에 인터넷이 필요합니다.
 
-## 7. OEM 양산 연동 로드맵
+| 키 / 버튼 | 흐름 |
+|---|---|
+| 1 골목 픽업 | 우회전 → 골목·건물 앞 탑승 → 회차 → 본선 복귀 |
+| 2 주차장 주차 | 목적지 주차장 진입 → 통로 → 후진 주차 |
+| 3 잠시 정차 | 도로변 접근 → 비상등 정차 → 재합류 |
+| 4 식사 시간 맞춤 | 위치·ETA → 메뉴·주문 → 집 도착·음식 인계 |
+| 5 한강 음식 인계 | 현장 도착 → 모의 주변 시야·위치 설명 → 인계 |
+| 6 배리어프리 하차 | 지원·베이 비교 → 경로 → 정차·승인 → 입구 이동 |
 
-| 연동 시스템 | 선행 필요 조건 | 검증 항목 및 완료 증거 |
-|:---|:---|:---|
-| **Pleos Vehicle SDK** | 차종별 읽기/제어 권한 및 공식 SDK | Pleos 전용 AVD 및 허용 차량 신호 로그 |
-| **Gleo AI 음성** | NLU Intent 등록 및 주행 중 음성 정책 승인 | 실제 발화 → Intent 바인딩 → 청취 확인 흐름 |
-| **Hyundai CarPay** | 공식 가맹 제휴, 테스트 계정, 서명 콜백 | 샌드박스 거래, 이중 청구 방지, 취소/환불 검증 |
-| **SVM / 초음파 센서** | 센서 데이터 스트림 API 권한 및 보안 검증 | 렌즈 오염, 역광, 센서 통신 단절 Fail-Safe 시험 |
-| **파워 테일게이트** | OEM 안전 인터록 및 끼임 방지 우회 불가 검증 | OEM 엔지니어 입회하 비상 정지/반전 실차 시험 |
-| **UWB 측위** | 정밀 측위 앵커 및 차량 트랜시버 접근 권한 | 지정 주차 구역(A-3) 측위 오차 반경 0.5m 이내 검증 |
+화면 버튼으로 시나리오와 재생 속도를 선택할 수 있습니다.
 
----
+## 구조와 빌드
 
-## 8. 참고 자료
-- [현대자동차그룹 오픈 앱 개발 공모전](https://appdevchallenge.auto-hmg.io/notice/c0a1a000-2026-4923-8000-000000000001)
-- [Pleos Connect SDK Reference](https://document.pleos.ai/en/api-reference/connect-sdk-pleos/)
-- [Android Automotive OS Driver Distraction Guidelines](https://source.android.com/docs/automotive/driver_distraction/guidelines)
-- [NHTSA Visual-Manual Driver Distraction Guidelines](https://www.transportation.gov/regulations/federal-register-documents/2013-09883)
-- [현대 카페이(Hyundai CarPay) 서비스 안내](https://www.hyundai.com/kr/ko/digital-customer-support/app/hyundai-car-pay/hyundai-car-pay-information)
+| 구분 | 핵심 파일 |
+|---|---|
+| 네이티브 화면 | `MainActivity.kt` → `MobilityApp.kt` |
+| 네이티브 상태·주행 | `MobilityViewModel.kt` — ViewModel / StateFlow / Coroutines |
+| 도메인 규칙 | `MobilityModels.kt` — 목적지·식사·접근성·승인 |
+| 웹 시연 제어 | `simulator/index.html`, `simulator/js/destination-demo.jsx` |
+| 주행·차선 | `simulator/js/mission-engine.js`, `simulator/js/lane-engine.js` |
+| Canvas 2D 렌더링 | `simulator/js/mission-viewport.jsx`, `simulator/js/scenery-assets.js` |
+| 식사·접근성 UI | `simulator/js/meal-cabin.jsx`, `simulator/js/access-cabin.jsx` |
+
+Android 소스: `app/src/main/java/io/curblink/demo/`. Kotlin 2.0.21 / Compose / Material 3 / JDK 17 / Gradle 8.9 / AGP 8.7.3 / SDK 35.
+
+JDK 17·SDK 35 설치 후 `JAVA_HOME`, `ANDROID_HOME`을 설정합니다.
+
+```powershell
+./scripts/build-drive.ps1
+```
+
+APK 빌드·테스트 컴파일·lint·JUnitCore 검증 후 배포 APK와 체크섬을 갱신합니다. Windows 테스트 워커 대응과 다른 PC 설정은 [개발 인수인계](docs/DEVELOPMENT_HANDOFF.md)를 참고하세요.
+
+## 검증 상태
+
+2026-10-29 기존 빌드 기록 기준이며 이번 문서 수정에서 Android 시험을 재실행한 결과는 아닙니다.
+
+- APK 빌드·테스트 컴파일 완료, lint 오류 **0개 / 경고 4개**.
+- JUnitCore **40개 통과**: 기존 도메인·세션 29개 + 모빌리티 규칙 11개.
+- APK v2 서명 및 16KB 페이지 정렬 검사 통과.
+- **실기기·AAOS·Pleos 설치 및 런타임 UI 검증 미완료**. 로컬 소프트웨어 에뮬레이터가 `device offline`에 머물렀습니다.
+- 다음 단계: 심사용 기기 UI·음성·전체 흐름 검증, 공식 권한에 따른 Pleos 어댑터, 실제 지도·ETA·주문·카메라 연동.
+
+기존 안전 인터록·브리지 소스와 테스트는 회귀 검증용으로 보존합니다. 이전 v0.1 APK·캡처·문서는 과거 기록이며 최신 앱의 화면이나 검증 결과로 사용하지 않습니다.
+
+## 관련 문서
+
+- [개발 인수인계](docs/DEVELOPMENT_HANDOFF.md)
+- [설치·시연·연동 제한](release/README.txt)
+- [빌드 검증 기록](release/BUILD-VERIFICATION.txt)
+- [캡처 출처·버전 안내](captures/README.md)
+- [공모전 공식 공고](https://appdevchallenge.auto-hmg.io/notice/c0a1a000-2026-4923-8000-000000000001)
