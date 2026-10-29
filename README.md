@@ -6,6 +6,8 @@
 
 [APK 다운로드](release/CurbLink-Drive-0.2-demo.apk) · [설치·시연 안내](release/README.txt) · [개발 인수인계](docs/DEVELOPMENT_HANDOFF.md) · [검증 기록](release/BUILD-VERIFICATION.txt)
 
+최신 검토: [품질 감사·네이티브 기능 일치 계획](docs/reviews/2026-10-29/AUDIT.md) — 웹 시연의 6개 여정은 APK 내부 실행을 필수 목표로 하며, 현재 기능 격차와 결함은 감사 문서에 구분했습니다.
+
 ## 현재 기능
 
 | 기능 | 구현 내용 |
