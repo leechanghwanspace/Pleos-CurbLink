@@ -19,35 +19,63 @@
 
 지도·경로·교통·차량 상태·주문/결제·주변 카메라·도어/리프트는 **모의**입니다. Android 위치와 플랫폼 음성은 기기 권한과 서비스 지원 시 사용합니다. 실제 Pleos SDK·Gleo·CarPay·SVM·차량 제어 연동 완료를 의미하지 않습니다.
 
-## 최신 시연 화면
+## 실제 APK 실행 화면
+
+아래는 배포 중인 **0.2 APK를 Samsung Galaxy Note10+ 5G(SM-N976N)에 직접 설치해 촬영한 원본 PNG**입니다. 화면을 2560×1380px / 240dpi로 설정한 뒤 ADB screencap 바이트를 그대로 저장했습니다. 확대·리사이즈·JPEG 재압축을 하지 않았습니다.
+
+Pleos 공식 스크린샷 허용 크기 중 **2560×1380px**를 적용했습니다. 이는 이미지 제출 규격이며 실제 Pleos 차량/AAOS 실행 인증이나 모든 차량의 공통 패널 규격을 뜻하지 않습니다. 아래에는 Android 시스템 바도 포함됩니다. [공식 이미지 규격](https://document.pleos.ai/en/docs/pleos-only/distribute/app-review-guide/review-app-registration-info)
+
+### 목적지 설정
+
+[![실제 APK 홈 화면](captures/android/01-home.png)](captures/android/01-home.png)
+
+### 차량 내 식사 주문
+
+[![실제 APK 위치 확인](captures/android/02-dining-location.png)](captures/android/02-dining-location.png)
+
+[![실제 APK 조리·배달 시간 기반 메뉴 추천](captures/android/03-dining-menu.png)](captures/android/03-dining-menu.png)
+
+[![실제 APK 주문 확인 후 도착 동기화](captures/android/04-dining-order.png)](captures/android/04-dining-order.png)
+
+### 배리어프리 하차
+
+[![실제 APK 하차 지원 조건과 베이 후보](captures/android/05-access-candidates.png)](captures/android/05-access-candidates.png)
+
+### 현장 인계
+
+[![실제 APK 현장 인계 위치 카드](captures/android/06-handoff.png)](captures/android/06-handoff.png)
+
+각 이미지를 클릭하면 원본 크기로 볼 수 있습니다. 촬영 기기·Android 버전·APK 해시와 이미지 해시는 같은 폴더의 JSON 기록을 참고하세요. 개인 위치 권한이나 외부 공유·실제 주문은 사용하지 않았습니다.
+
+## 웹 참고 시연 화면
 
 아래는 현재 저장소의 **웹 시뮬레이터 참고 캡처**입니다. 네이티브 APK 실행 화면이 아니며 APK와 화면 배치·세부 동작이 다릅니다. 이전 외관/트렁크 인터록 화면은 웹 진입 화면에서 제거했습니다.
 
 ### 운전자 시점·차선 안내
 
-![운전자 시점과 차선 HUD — 웹 참고 시연](captures/driver-view.jpg)
+![운전자 시점과 차선 HUD — 웹 참고 시연](captures/web/driver-view.png)
 
 가상 도로·건물·수목·보행자 환경에서 목적별 접근 경로를 시연합니다.
 
 ### 차량 내부 디스플레이에서 식사 주문
 
-![위치 탐색 단계 — 웹 참고 시연](captures/meal-cabin-gps.jpg)
+![위치 탐색 단계 — 웹 참고 시연](captures/web/meal-cabin-gps.png)
 
-![도착 시간과 조리·배달 시간을 고려한 메뉴 추천 — 웹 참고 시연](captures/meal-cabin-menu.jpg)
+![도착 시간과 조리·배달 시간을 고려한 메뉴 추천 — 웹 참고 시연](captures/web/meal-cabin-menu.png)
 
 위치 탐색부터 목적지·메뉴 선택, 주문 확인과 도착까지 진행합니다. 운전자·동승자 모드를 구분하며 실제 매장에 주문을 전송하지 않습니다.
 
 ### 배리어프리 하차·입구 이동
 
-![거리·경사·측면 공간을 비교하는 하차 후보 — 웹 참고 시연](captures/access-comparison.jpg)
+![거리·경사·측면 공간을 비교하는 하차 후보 — 웹 참고 시연](captures/web/access-comparison.png)
 
-![무단차 하차 베이와 입구 이동 완료 — 웹 참고 시연](captures/access-arrival.jpg)
+![무단차 하차 베이 정차와 하차 전 확인 — 웹 참고 시연](captures/web/access-arrival.png)
 
 필요한 공간과 도움에 따라 베이·경로가 달라집니다. 정차·안전 조건 확인과 사용자 승인 후 입구 이동을 시연합니다. 후보 지점과 수치는 가상 데이터입니다.
 
 ### 주소 설명이 어려운 현장 인계
 
-![모의 주변 시야와 현장 인계 위치 카드 — 웹 참고 시연](captures/river-surround-handoff.jpg)
+![모의 주변 시야와 현장 인계 위치 카드 — 웹 참고 시연](captures/web/river-surround-handoff.png)
 
 한강 등에서 주변 시야와 위치 설명 카드로 인계 지점을 공유합니다. 카메라 화면은 가상 장면이며 실제 서라운드뷰 연동이 아닙니다.
 
@@ -114,7 +142,7 @@ APK 빌드·테스트 컴파일·lint·JUnitCore 검증 후 배포 APK와 체크
 - APK 빌드·테스트 컴파일 완료, lint 오류 **0개 / 경고 4개**.
 - JUnitCore **40개 통과**: 기존 도메인·세션 29개 + 모빌리티 규칙 11개.
 - APK v2 서명 및 16KB 페이지 정렬 검사 통과.
-- **실기기·AAOS·Pleos 설치 및 런타임 UI 검증 미완료**. 로컬 소프트웨어 에뮬레이터가 `device offline`에 머물렀습니다.
+- **Android 실기기에 APK 설치·화면 실행 및 식사 주문 흐름 촬영 완료**. AAOS·Pleos 런타임과 실차 연동은 미검증이며 전체 기능의 종단 시험 완료를 의미하지 않습니다. 로컬 에뮬레이터 부팅 문제는 남아 있습니다.
 - 다음 단계: 심사용 기기 UI·음성·전체 흐름 검증, 공식 권한에 따른 Pleos 어댑터, 실제 지도·ETA·주문·카메라 연동.
 
 기존 안전 인터록·브리지 소스와 테스트는 회귀 검증용으로 보존합니다. 이전 v0.1 APK·캡처·문서는 과거 기록이며 최신 앱의 화면이나 검증 결과로 사용하지 않습니다.

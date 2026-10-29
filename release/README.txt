@@ -74,3 +74,6 @@ JAVA_HOME / ANDROID_HOME / 선택적으로 CURBLINK_GRADLE을 지정한 후:
   소프트웨어 모드 AVD 부팅은 device offline 상태로 진행되지 않았습니다.
   따라서 Android/AAOS/Pleos 실기기 설치·전체 UI 시연 검증 완료로 표시하지 않습니다.
 - 실제 시연 기기에서 설치·글꼴·음성 서비스·화면 크기·주행 UX 제한을 추가 확인해야 합니다.
+
+[2026-10-29 실기기 캡처 추가]
+배포 APK를 Samsung SM-N976N(Android 12)에 설치·실행하여 2560×1380px / 240dpi 원본 PNG 6장을 촬영했습니다. captures/android 및 captures/README.md 참고. 기존 실기기 설치 미검증 기록은 이 촬영 범위에 한해 갱신하며, AAOS/Pleos/실차 및 전체 기능 종단 검증은 미완료입니다.

@@ -29,3 +29,5 @@ Number of signers: 1
 NOT VERIFIED: Android/AAOS/Pleos runtime UI and physical device installation.
 A stock Android 35 software-emulated AVD remained device offline without a hypervisor driver.
 This build is not evidence of real Pleos SDK, vehicle controls, map/traffic, ordering/payment or camera integration.
+
+RUNTIME CAPTURE UPDATE (2026-10-29 KST): The unchanged release APK was installed and launched on Samsung SM-N976N. Home, dining location/menu/order, accessibility candidates and handoff screens were captured as unmodified 2560x1380 PNG at 240dpi. See captures/android and captures/README.md. This supersedes the physical-device installation/UI availability limitation above only; AAOS/Pleos runtime, real vehicle integration and full end-to-end functionality remain unverified.
