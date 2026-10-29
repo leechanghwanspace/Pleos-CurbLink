@@ -10,8 +10,8 @@ android {
         applicationId = "io.curblink.demo"
         minSdk = 29
         targetSdk = 35
-        versionCode = 1
-        versionName = "0.1-demo"
+        versionCode = 2
+        versionName = "0.2-contest-demo"
     }
     buildFeatures { compose = true }
     compileOptions {

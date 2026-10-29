@@ -1,0 +1,16 @@
+const assert = require('node:assert/strict');
+const { rank, nextChange } = require('./lane-engine.js');
+assert.equal(rank({}).lane, 2);
+const blocked = rank({traffic:{2:{queue:1,blockProbability:.7,extraWait:20},3:{queue:1}}});
+assert.equal(blocked.lane, 3);
+assert.equal(blocked.costs.find(x=>x.id===2).cost,28);
+assert.equal(blocked.costs.find(x=>x.id===3).cost,17);
+assert.equal(rank({phase:'APPROACH'}).lane,4);
+assert.equal(rank({currentLane:4,phase:'REJOIN'}).lane,3);
+assert.equal(rank({valid:false}).lane,null);
+assert.equal(rank({traffic:{2:{closed:true},3:{closed:true}}}).lane,null);
+assert.equal(nextChange(2,4,true).lane,3);
+assert.equal(nextChange(2,3,false).allowed,false);
+assert.equal(nextChange(2,3,true,false).allowed,false);
+assert.equal(rank({currentLane:1,distance:0}).lane,null);
+console.log('PASS: lane costs, curb approach/rejoin, stale/closed/unreachable, adjacent safe change');
