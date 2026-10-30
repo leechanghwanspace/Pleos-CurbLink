@@ -47,6 +47,7 @@ data class MobilityState(
     val needs: AccessPreferences = AccessPreferences(), val bay: AccessBay? = null, val accessTrip: Boolean = false,
     val spaceChecked: Boolean = false, val rampReady: Boolean = false, val staffAccepted: Boolean = false,
     val obstacle: Boolean = false, val accessApproved: Boolean = false, val exitProgress: Int = 0,
+    val handoffPhotoUris: List<String> = emptyList(),
     val locationShared: Boolean = false, val received: Boolean = false, val vehicleValid: Boolean = true,
     val settings: Boolean = false, val note: String = "목적지를 선택하고 도착 이후의 경험까지 준비하세요."
 ) {

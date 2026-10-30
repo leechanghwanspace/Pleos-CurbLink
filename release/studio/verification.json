@@ -33,8 +33,10 @@
     "early exit",
     "late exit reroute",
     "explicit order",
+    "active order reset protection",
     "wide bay",
     "approval invalidation",
     "handoff preview"
-  ]
+  ],
+  "catalogParity": "PASS: native 3 destinations and 5 menus"
 }

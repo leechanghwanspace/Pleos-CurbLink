@@ -98,7 +98,9 @@ class MobilityViewModel(app: Application) : AndroidViewModel(app) {
         lastLaneAt=SystemClock.elapsedRealtime()
         update{it.copy(laneTraffic=traffic,laneContext=context,laneDataValid=valid&&it.vehicleValid)}
     }
-    fun reset()=update{if(!it.canEdit)it.copy(note="P단 정차 상태에서 초기화해 주세요.")else JourneyTransitions.newTrip(it).copy(page=0,note="새 도착 준비를 시작합니다.")}
+    fun reset()=update(JourneyTransitions::reset)
+    fun attachPhotos(uris:List<String>,tripId:String?)=update{JourneyTransitions.attachPhotos(it,uris,tripId)}
+    fun clearPhotos()=update{if(it.canEdit)it.copy(handoffPhotoUris=emptyList(),locationShared=false,confirmedLocation=null,note="첨부 사진을 모두 제거했습니다.")else it}
     fun observeLocation(label:String,latitude:Double?=null,longitude:Double?=null)=update{
         if(latitude==null||longitude==null||!latitude.isFinite()||!longitude.isFinite()||latitude !in -90.0..90.0||longitude !in -180.0..180.0) it
         else { lastLocationAt=SystemClock.elapsedRealtime(); it.copy(gpsReady=true,locationLabel=label,lat=latitude,lon=longitude,
@@ -158,32 +160,10 @@ class MobilityViewModel(app: Application) : AndroidViewModel(app) {
     }
     fun selectBay()=update{s->
         if(!s.canEdit||!s.servicesReady)s.copy(note="P단 정차 및 차량 연결 상태에서 하차 지점을 선택해 주세요.")
-        else{
-            val best=MobilityRules.assess(s.needs).firstOrNull{it.eligible}?.bay
-            val place=s.destination
-            val nextPhase=s.phase
-            s.copy(
-                locationVersion=s.locationVersion+1,locationShared=false,confirmedLocation=null,
-                spaceChecked=false,rampReady=false,staffAccepted=false,accessApproved=false,exitProgress=0,exitHeld=false,
-                routeReady=s.routeReady,gpsReady=s.gpsReady,
-                phase=nextPhase,
-                remaining=place.eta.coerceAtLeast(s.remaining),total=maxOf(s.total,place.eta,1),remainingMeters=s.remainingMeters?:place.meters,
-                bay=best,purpose=ArrivalPurpose.ACCESS,accessTrip=best!=null,
-                note=best?.let{"✓ [${it.name}] 선택 완료 (입구까지 ${it.walk}m · 경사 ${it.slope}% · 옆문 ${it.side}m) — 오른쪽에서 하차 전 안전 조건을 확인하세요."} ?: "조건에 맞는 하차 지점이 없습니다. 선호 조건을 조정해 보세요."
-            )
-        }
+        else MobilityRules.assess(s.needs).firstOrNull{it.eligible}?.bay?.let{JourneyTransitions.selectBay(s,it)}
+            ?:s.copy(note="조건에 맞는 하차 지점이 없습니다. 지원 조건을 확인하거나 현장 도움을 요청해 주세요.")
     }
-    fun chooseBay(bay:AccessBay)=update{s->
-        if(!s.canEdit||!MobilityRules.assess(s.needs,listOf(bay)).first().eligible)s.copy(note="하차 조건에 맞는 지점을 정차 후 선택해 주세요.")
-        else s.copy(
-            bay=bay,purpose=ArrivalPurpose.ACCESS,accessTrip=true,
-            locationVersion=s.locationVersion+1,locationShared=false,confirmedLocation=null,
-            gpsReady=s.gpsReady,
-            phase=s.phase,
-            spaceChecked=false,rampReady=false,staffAccepted=false,obstacle=false,accessApproved=false,exitProgress=0,exitHeld=false,
-            note="✓ [${bay.name}] 선택 완료 (입구까지 ${bay.walk}m) — 오른쪽에서 하차 전 안전 조건을 확인하세요."
-        )
-    }
+    fun chooseBay(bay:AccessBay)=update{JourneyTransitions.selectBay(it,bay)}
     fun resetAccessSelection()=update{s->
         if(!s.canEdit)s.copy(note="P단 정차 상태에서 변경해 주세요.")
         else s.copy(accessTrip=false,bay=null,spaceChecked=false,rampReady=false,staffAccepted=false,obstacle=false,accessApproved=false,exitProgress=0,exitHeld=false,note="하차 지원 조건과 후보 베이를 다시 선택합니다.")
