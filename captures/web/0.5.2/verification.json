@@ -1,0 +1,83 @@
+{
+  "version": "0.5.2-arrival-preview",
+  "source": "road/cabin/surround web simulation, NOT APK",
+  "rendering": "Chromium headless, software rendering (--disable-gpu); no hardware GPU certification",
+  "viewport": "1920x1200",
+  "deviceScaleFactor": 1,
+  "imageProcessing": "none; original element PNGs",
+  "result": "PASS",
+  "flows": [
+    "PICKUP: alley, boarding, return and merge",
+    "PARKING: gate, aisle, reverse and parked",
+    "SHORT_STOP: pull over, hazards and rejoin",
+    "MEAL: GPS, menu, explicit simulated voice approval and receipt",
+    "RIVER: four simulated views, location approval and receipt",
+    "ACCESS: suitability, stopped checks, explicit approval and entrance arrival"
+  ],
+  "pageErrors": [],
+  "captures": [
+    {
+      "file": "01-driver-pickup.png",
+      "width": 1802,
+      "height": 720,
+      "sha256": "03049a0c2c9142246b81c61a8cc718f75e98275e817e0934098854b100974e91",
+      "bytes": 558803
+    },
+    {
+      "file": "02-parking-reverse.png",
+      "width": 1802,
+      "height": 720,
+      "sha256": "9b84ae736306bfe5b14204aec5994b12bc2fcb71aadc1cc7de20ee8f9f7e908c",
+      "bytes": 247359
+    },
+    {
+      "file": "03-short-stop.png",
+      "width": 1802,
+      "height": 720,
+      "sha256": "b5e9804c6b22431c1763e29414eb7eee95ba10f8af557b79bff2d51ce20e53ba",
+      "bytes": 431606
+    },
+    {
+      "file": "04-meal-menu.png",
+      "width": 1802,
+      "height": 846,
+      "sha256": "bf85ef69e4706474e07f2add1dff319c2b02f90755aa62549e66b7d5388d197a",
+      "bytes": 571232
+    },
+    {
+      "file": "05-meal-confirmed.png",
+      "width": 1802,
+      "height": 732,
+      "sha256": "a307d7e6ae1cdec9f1a5ac14946a6e05f0a2bc313a1c585db2c07544a0dd8cd8",
+      "bytes": 564334
+    },
+    {
+      "file": "06-river-surround-handoff.png",
+      "width": 1802,
+      "height": 663,
+      "sha256": "d90ecf54f94b028d3ecfd8aaf969f94a95922526259c87a719a726c11b72cdb1",
+      "bytes": 155434
+    },
+    {
+      "file": "07-access-comparison.png",
+      "width": 1802,
+      "height": 1021,
+      "sha256": "f9240cf3977f681dc58a1e8e9cad498ae919547528085db6968aa48e7991cf93",
+      "bytes": 487842
+    },
+    {
+      "file": "08-access-safety.png",
+      "width": 1802,
+      "height": 1024,
+      "sha256": "55742611fec889a42e8426f9a4163e632624f970c16548239bf15e9024d2217c",
+      "bytes": 367614
+    },
+    {
+      "file": "09-access-complete.png",
+      "width": 1802,
+      "height": 729,
+      "sha256": "b485ce6bce009d1d44826998eb883727968809d0c18333c01a11f10f730130d9",
+      "bytes": 286412
+    }
+  ]
+}

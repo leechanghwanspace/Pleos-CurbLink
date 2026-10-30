@@ -12,8 +12,8 @@ android {
         applicationId = "io.curblink.demo"
         minSdk = 29
         targetSdk = 35
-        versionCode = 7
-        versionName = "0.5.1-arrival-studio"
+        versionCode = 8
+        versionName = "0.5.2-arrival-preview"
         testInstrumentationRunner = "io.curblink.demo.VehicleAppInstrumentation"
     }
     buildFeatures { compose = true }

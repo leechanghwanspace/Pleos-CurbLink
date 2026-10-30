@@ -63,7 +63,7 @@ private val Shape=RoundedCornerShape(24.dp)
         else permission.launch(arrayOf(Manifest.permission.ACCESS_FINE_LOCATION,Manifest.permission.ACCESS_COARSE_LOCATION))}
     val voice=rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()){result->
         val transcript=result.data?.getStringArrayListExtra(RecognizerIntent.EXTRA_RESULTS)?.firstOrNull()
-        if(transcript.isNullOrBlank())vm.note("음성 입력이 취소되었거나 내용을 인식하지 못했습니다. 기존 선택은 유지합니다.")
+        if(transcript.isNullOrBlank()){vm.voiceUnavailable();spokenNote=vm.state.value.note;speechSequence++}
         else {vm.voice(transcript);spokenNote=vm.state.value.note;speechSequence++}
     }
     fun listen(){
@@ -84,7 +84,9 @@ private val Shape=RoundedCornerShape(24.dp)
                 clipData=ClipData.newUri(context.contentResolver,"현장 사진",photos.first()).also{clip->photos.drop(1).forEach{clip.addItem(ClipData.Item(it))}}
                 addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
             }
-        try{context.startActivity(Intent.createChooser(intent.putExtra(Intent.EXTRA_TEXT,text),"확인한 위치와 사진 공유"))}catch(_:Exception){vm.note("공유 가능한 앱을 확인해 주세요.")}
+        intent.putExtra(Intent.EXTRA_TEXT,text)
+        if(intent.resolveActivity(context.packageManager)==null){vm.note("공유할 수 있는 앱이 없습니다. 사진과 위치 카드는 유지합니다. 공유 앱 설치 후 정차 상태에서 다시 시도해 주세요.");return}
+        try{context.startActivity(Intent.createChooser(intent,"확인한 위치와 사진 공유"));vm.note("공유창을 열었습니다. 전달 완료 여부는 선택한 앱에서 확인해 주세요.")}catch(_:Exception){vm.shareUnavailable()}
     }
     MaterialTheme(colorScheme=lightColorScheme(primary=Teal,onPrimary=Color.White,background=Paper,surface=Color.White,onSurface=Ink)){
         Surface(Modifier.fillMaxSize(),color=Paper){BoxWithConstraints(Modifier.fillMaxSize().safeDrawingPadding()){
@@ -107,11 +109,11 @@ private val Shape=RoundedCornerShape(24.dp)
                         0->Arrival(s,vm,wide)
                         1->Dining(s,vm,wide,::gps,::listen)
                         2->Access(s,vm,wide)
-                        else->Handoff(s,vm,wide,photos.size,::gps,{photoPickerTrip=s.tripId;picker.launch(arrayOf("image/*"))},::share)
+                        else->Handoff(s,vm,wide,photos.size,::gps,{photoPickerTrip=s.tripId;try{picker.launch(arrayOf("image/*"))}catch(_:Exception){photoPickerTrip=null;vm.note("사진 선택기를 열지 못했습니다. 기존 첨부는 유지합니다. 정차 후 사진 앱을 확인하고 다시 시도해 주세요.")}},::share)
                     }
                 }
                 Row(Modifier.fillMaxWidth().background(Color.White,RoundedCornerShape(18.dp)).padding(12.dp),verticalAlignment=Alignment.CenterVertically,horizontalArrangement=Arrangement.spacedBy(12.dp)){
-                    Column(Modifier.weight(1f)){Text(s.note,color=Ink,fontSize=15.sp,maxLines=2);if(!compact)Text(if(s.source==VehicleSource.TEST)"외부 시험 입력 · 실거래·실카메라 아님" else "주문·시설·카메라: 제공자 미연결 · 견본 데이터",color=Muted,fontSize=12.sp)}
+                    Column(Modifier.weight(1f)){Text(s.note,color=Ink,fontSize=15.sp);if(!compact)Text(if(s.source==VehicleSource.TEST)"외부 시험 입력 · 실거래·실카메라 아님" else "주문·시설·카메라: 제공자 미연결 · 견본 데이터",color=Muted,fontSize=12.sp)}
                     if(s.page==0)OutlinedButton(onClick=vm::markArrivedForCheck,enabled=s.canEdit){Text("정차 후 도착 확인")}
                 }
             }
@@ -157,10 +159,12 @@ private val Shape=RoundedCornerShape(24.dp)
     Trip(s)
     Panel("다음 차선을, 미리", "LANE INTELLIGENCE"){
         val advice=s.laneAdvice
+        Text(advice.nextAction,color=Ink,fontSize=22.sp,fontWeight=FontWeight.Bold)
+        if(s.moving && s.routeReady)Badge("목적지까지 ${s.distance}m")
         Badge(advice.lane?.let{"${it}차선 추천"}?:"차선 관측 대기",if(advice.lane!=null)Teal else Amber)
         LaneRoad(advice.lane,s.currentLane.takeIf{s.laneDataValid})
         Copy(advice.reason,false)
-        Copy("직좌 동시 신호는 2·3차선 비교 · 우회전 대기열은 4차선 비용에 반영")
+        if(advice.nextLane!=null)Copy("목표 ${advice.lane}차선 · 다음 인접 ${advice.nextLane}차선. 변경 가능 여부는 현장에서 확인합니다.")
         if(s.laneContext.exitMeters!=null)Badge("분기점 ${s.laneContext.exitMeters}m · 급한 끼어들기 금지",Amber)
         if(!s.laneDataValid)Copy("실제 차선·신호·대기열 제공자 미연결. 임의 추천을 표시하지 않습니다.")
     }
@@ -288,12 +292,15 @@ private val Shape=RoundedCornerShape(24.dp)
     }
 },{
     Panel("내게 맞는 하차 지점","COMPARE THE WHOLE PATH"){
-        MobilityRules.assess(s.needs).forEach{assessment->val bay=assessment.bay
+        if(s.bayAssessments.none{it.eligible})Copy("조건에 맞는 후보가 없습니다. 지원 조건을 확인하거나 현장 도움을 요청해 주세요.",false)
+        if(s.unavailableBayIds.isNotEmpty())Copy("이용 불가는 사용자 확인입니다. 이번 여정에만 적용하며 시설 실시간 정보가 아닙니다.")
+        s.bayAssessments.forEach{assessment->val bay=assessment.bay
             Column(Modifier.fillMaxWidth().background(if(assessment.eligible)Mint else Paper,RoundedCornerShape(18.dp)).padding(16.dp),verticalArrangement=Arrangement.spacedBy(10.dp)){
                 Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.SpaceBetween){Text(bay.name,color=Ink,fontSize=19.sp,fontWeight=FontWeight.Bold);Badge(if(assessment.eligible)"조건 충족" else "제외",if(assessment.eligible)Teal else Red)}
                 Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.SpaceBetween){Copy("입구 ${bay.walk}m");Copy("경사 ${bay.slope}%");Copy("옆문 ${bay.side}m")}
                 Copy(if(assessment.eligible)"무단차 연결 · 차도 횡단 없음" else assessment.reasons.joinToString(" · "))
                 if(assessment.eligible)Primary(if(s.bay?.id==bay.id)"선택한 하차 지점" else "이 지점으로 안내",s.canEdit){vm.chooseBay(bay)}
+                if(bay.id !in s.unavailableBayIds)OutlinedButton(onClick={vm.unavailableBay(bay.id)},enabled=s.canEdit){Text("${bay.id} · 이 지점 이용 불가")}
             }
         }
     }
