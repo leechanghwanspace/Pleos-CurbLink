@@ -1,3 +1,18 @@
+> **현재 브랜치: `main` — 검증된 최종 기준선**
+>
+> 개발 중인 0.5는 `integration`에 있습니다. 대상 Pleos의 실제 실행·캡처·영상 검증이 남아 있으므로 이 브랜치의 기존 0.2 제품 코드를 자동으로 교체하지 않았습니다. 이번 main 변경은 안내 문서뿐입니다.
+>
+> | 보려는 내용 | 열 브랜치 |
+> |---|---|
+> | 최종 검증을 마친 기준선 | **main — 현재 위치** |
+> | 도로·차량 내부·주변 시야 웹 시뮬레이션 | [simulation](https://github.com/leechanghwanspace/Pleos-CurbLink/tree/simulation) |
+> | 시뮬레이션 + APK 통합 개발·검증 | [integration](https://github.com/leechanghwanspace/Pleos-CurbLink/tree/integration) |
+> | 네이티브 앱 개발·APK만 실행 | [apk](https://github.com/leechanghwanspace/Pleos-CurbLink/tree/apk) |
+>
+> **[브랜치 전체 안내와 기존 브랜치 대응표](docs/BRANCH_GUIDE.md)**
+>
+> `automation/*`, `feature/simulator-bridge`, `codex/simulation-app-redesign`는 과거 이력입니다. 새 작업은 위 네 브랜치에서 시작합니다. 공통 변경은 integration에서 모으고 검증 후 main으로 승격합니다.
+
 # CurbLink Drive
 
 **목적에 맞는 마지막 500m — 목적지 도착, 식사 시간 맞춤, 배리어프리 하차와 현장 인계를 연결하는 차량용 앱 프로토타입**
