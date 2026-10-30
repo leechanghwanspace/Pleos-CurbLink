@@ -8,9 +8,14 @@ assert.equal(blocked.costs.find(x=>x.id===3).cost,17);
 assert.equal(rank({phase:'APPROACH'}).lane,4);
 assert.equal(rank({currentLane:4,phase:'REJOIN'}).lane,3);
 assert.equal(rank({valid:false}).lane,null);
-assert.equal(rank({traffic:{2:{closed:true},3:{closed:true}}}).lane,null);
+assert.equal(rank({traffic:{2:{closed:true},3:{closed:true}}}).lane,4);
 assert.equal(nextChange(2,4,true).lane,3);
 assert.equal(nextChange(2,3,false).allowed,false);
 assert.equal(nextChange(2,3,true,false).allowed,false);
 assert.equal(rank({currentLane:1,distance:0}).lane,null);
 console.log('PASS: lane costs, curb approach/rejoin, stale/closed/unreachable, adjacent safe change');
+
+assert.deepEqual(rank({distance:1000,context:{simultaneousGreen:true}}).alternatives,[2,3]);
+assert.equal(rank({distance:5000,context:{exitMeters:1200,exitLane:4}}).lane,4);
+assert.match(rank({distance:5000,context:{exitMeters:100,exitLane:4}}).reason,/재탐색/);
+assert.equal(rank({traffic:{2:{signalWait:NaN}}}).lane,null);

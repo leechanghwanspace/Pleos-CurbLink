@@ -13,7 +13,7 @@ import kotlinx.coroutines.launch
 
 class MobilityViewModel(app: Application) : AndroidViewModel(app) {
     private val prefs = app.getSharedPreferences("curblink_drive", Context.MODE_PRIVATE)
-    private val initial = MobilityState(vehicleValid=false, uxRestricted=true, remaining=0, total=1,
+    private val initial = MobilityState(vehicleValid=false, uxRestricted=true, appDestinationSelected=true, remaining=0, total=1,
         locationLabel="위치 확인 전", note="차량과 서비스 연결을 기다리고 있습니다.",
         needs=AccessPreferences(prefs.getBoolean("wheelchair",true),prefs.getBoolean("wide",false),prefs.getBoolean("gentle",false),prefs.getBoolean("staff",true)))
     private val mutable = MutableStateFlow(JourneyStore.restore(prefs.getString("journey_v1",null),initial))
@@ -23,6 +23,8 @@ class MobilityViewModel(app: Application) : AndroidViewModel(app) {
     fun stopConnections() = connections.stop()
     override fun onCleared() { connections.stop(); super.onCleared() }
     private var lastVehicle: VehicleObservation? = null
+    private var lastLocationAt=0L
+    private var lastLaneAt=0L
     private fun update(change: (MobilityState)->MobilityState) {
         var next=JourneyTransitions.enforce(change(mutable.value))
         if(next.lat!=mutable.value.lat||next.lon!=mutable.value.lon||next.locationLabel!=mutable.value.locationLabel) next=next.copy(locationVersion=next.locationVersion+1,locationShared=false,confirmedLocation=null)
@@ -34,16 +36,28 @@ class MobilityViewModel(app: Application) : AndroidViewModel(app) {
         mutable.value=next
     }
     // Only connection freshness is monitored. No virtual driving, clock acceleration or actors.
-    init { viewModelScope.launch { while(true){delay(500); if(lastVehicle?.validAt(SystemClock.elapsedRealtime())!=true&&mutable.value.vehicleValid) disconnected()} } }
+    init {
+        viewModelScope.launch {
+            while(true){
+                delay(500)
+                val now=SystemClock.elapsedRealtime()
+                if(lastLocationAt!=0L&&now-lastLocationAt>30000&&mutable.value.gpsReady) locationUnavailable()
+                if(lastLaneAt!=0L&&now-lastLaneAt>5000&&mutable.value.laneDataValid) update{it.copy(laneDataValid=false)}
+                if(lastVehicle?.validAt(now)!=true&&mutable.value.vehicleValid) disconnected()
+            }
+        }
+    }
     private fun disconnected()=update{it.copy(vehicleValid=false,uxRestricted=true,source=VehicleSource.UNAVAILABLE,gear=VehicleGear.UNKNOWN,
         servicesReady=false,routeReady=false,spaceChecked=false,locationShared=false,confirmedLocation=null,note="차량 정보를 확인할 수 없습니다. 연결 후 상태를 다시 확인해 주세요.")}
     fun vehicleUnavailable(message:String) { lastVehicle=null; disconnected(); note(message) }
     fun navigationStatus(connected:Boolean,message:String?=null)=update{it.copy(navigationConnected=connected,note=message?:it.note)}
     fun clearNavigationRoute()=update{if(!it.routeReady)it else it.copy(routeReady=false,locationVersion=it.locationVersion+1,
         locationShared=false,confirmedLocation=null,accessApproved=false,exitHeld=it.accessApproved||it.exitHeld,spaceChecked=false)}
+    fun acceptsNavigation(name:String):Boolean = !mutable.value.appDestinationSelected || name == mutable.value.destination.name
     fun observeNavigationDestination(name:String,seconds:Int,meters:Int)=update{s->
-        val changed=s.destination.id!="PLEOS_CURRENT"||s.destination.name!=name
-        s.copy(destination=DemoPlace("PLEOS_CURRENT",name.ifBlank{"내비게이션 목적지"},"Pleos 내비게이션 안내",seconds,meters),
+        if (!acceptsNavigation(name)) return@update s
+        val changed=!s.appDestinationSelected && (s.destination.id!="PLEOS_CURRENT"||s.destination.name!=name)
+        s.copy(destination=if(s.appDestinationSelected)s.destination else DemoPlace("PLEOS_CURRENT",name.ifBlank{"내비게이션 목적지"},"Pleos 내비게이션 안내",seconds,meters),
             locationVersion=if(changed)s.locationVersion+1 else s.locationVersion,
             locationShared=if(changed)false else s.locationShared,confirmedLocation=if(changed)null else s.confirmedLocation,
             accessApproved=if(changed)false else s.accessApproved,spaceChecked=if(changed)false else s.spaceChecked,
@@ -56,7 +70,7 @@ class MobilityViewModel(app: Application) : AndroidViewModel(app) {
         update{it.copy(vehicleValid=true,source=value.source,gear=value.gear,uxRestricted=value.uxRestricted,
             phase=if(value.moving)DrivePhase.DRIVING else if(it.phase==DrivePhase.ARRIVED)DrivePhase.ARRIVED else DrivePhase.IDLE,
             servicesReady=value.source!=VehicleSource.UNAVAILABLE,
-            laneDataValid=value.source!=VehicleSource.UNAVAILABLE,
+            laneDataValid=value.source==VehicleSource.TEST || lastLaneAt!=0L&&SystemClock.elapsedRealtime()-lastLaneAt<=5000,
             note=if(it.vehicleValid)it.note else if(value.source==VehicleSource.TEST)"개발 검증용 데이터 · 실제 주문·차량 제어 미연결" else "차량 정보가 연결되었습니다.")}
     }
     fun observeTrip(value: TripObservation) {
@@ -70,62 +84,40 @@ class MobilityViewModel(app: Application) : AndroidViewModel(app) {
     fun note(text:String)=update{it.copy(note=text)}
     fun destination(place:DemoPlace)=update{s->
         if(!s.canEdit)s.copy(note="P단 정차 상태에서 목적지를 변경해 주세요.")
+        else if(s.order!=null&&!s.received)s.copy(note="진행 중인 주문의 수령 목적지를 먼저 확인해 주세요.")
         else JourneyTransitions.newTrip(s,place).copy(
             order=if(s.received)null else s.order,
             selectedMenu=if(s.received)null else s.selectedMenu,
             mealStep=if(s.order!=null&&!s.received)s.mealStep else DiningStep.LOCATION,
-            routeReady=true,remaining=place.eta,total=place.eta,remainingMeters=place.meters,
+            appDestinationSelected=true,routeReady=s.source==VehicleSource.TEST,remaining=place.eta,total=place.eta,remainingMeters=place.meters,
             note="${place.name}(으)로 목적지를 설정했습니다. 1~4차선 최적 경로와 도착 준비를 안내합니다."
         )
     }
     fun purpose(value:ArrivalPurpose)=update{if(!it.canEdit||it.purpose==value)it else it.copy(purpose=value,note="도착 목적을 '${value.label}'(으)로 변경했습니다. 목적지 진입 차선과 정차 구역을 재탐색합니다.")}
-    fun selectLane(lane:Int)=update{s->
-        val target=lane.coerceIn(1,4)
-        val traffic=s.laneTraffic.ifEmpty{defaultRealisticTraffic()}
-        val dist=if(s.distance>0)s.distance else 600
-        val advice=LaneRecommendation.rank(target,s.purpose,dist,traffic,true)
-        s.copy(currentLane=target,laneTraffic=traffic,note="현재 차선을 ${target}차선으로 설정했습니다 · 권장: ${advice.lane?.let{"${it}차선"}?:"보류"} (${advice.reason})")
+    fun observeLanes(traffic:Map<Int,LaneTraffic>, context:LaneContext, valid:Boolean){
+        lastLaneAt=SystemClock.elapsedRealtime()
+        update{it.copy(laneTraffic=traffic,laneContext=context,laneDataValid=valid&&it.vehicleValid)}
     }
-    fun applyLaneScenario(stage:Int)=update{s->
-        when(stage){
-            1 -> s.copy(currentLane=2,onMainRoad=true,remainingMeters=600,laneTraffic=defaultRealisticTraffic(),
-                note="본선 직진 탐색: 1·2차선 좌회전 병목 및 4차선 우회전·정차 신호를 피해 3차선(직진 전용)이 가장 최적입니다.")
-            2 -> s.copy(currentLane=2,onMainRoad=true,remainingMeters=480,laneTraffic=mapOf(
-                1 to LaneTraffic(queue=8,signalWait=22.0),
-                2 to LaneTraffic(queue=7,signalWait=12.0,blockProbability=0.85,extraWait=24.0),
-                3 to LaneTraffic(queue=0,signalWait=0.0),
-                4 to LaneTraffic(queue=4,signalWait=10.0,blockProbability=0.6,extraWait=14.0)
-            ),note="2차선 좌회전 대기열 병목 발생 → 인접한 3차선(직진 전용)으로 차선 변경을 추천합니다.")
-            else -> {
-                val approachDist=if(s.purpose==ArrivalPurpose.PARKING)90 else 120
-                s.copy(currentLane=3,onMainRoad=true,remainingMeters=approachDist,laneTraffic=mapOf(
-                    1 to LaneTraffic(queue=6,signalWait=18.0),
-                    2 to LaneTraffic(queue=5,signalWait=10.0,blockProbability=0.8,extraWait=20.0),
-                    3 to LaneTraffic(queue=1,signalWait=0.0),
-                    4 to LaneTraffic(queue=1,signalWait=0.0)
-                ),note="목적지 전방 ${approachDist}m 접근: 본선 3차선 주행 후 정차·주차 구역 진입을 위해 4차선으로 순차 진입합니다.")
-            }
-        }
-    }
-    private fun defaultRealisticTraffic():Map<Int,LaneTraffic> = mapOf(
-        1 to LaneTraffic(queue=6,signalWait=18.0),
-        2 to LaneTraffic(queue=5,signalWait=10.0,blockProbability=0.8,extraWait=20.0),
-        3 to LaneTraffic(queue=0,signalWait=0.0),
-        4 to LaneTraffic(queue=4,signalWait=10.0,blockProbability=0.5,extraWait=12.0)
-    )
     fun reset()=update{if(!it.canEdit)it.copy(note="P단 정차 상태에서 초기화해 주세요.")else JourneyTransitions.newTrip(it).copy(page=0,note="새 도착 준비를 시작합니다.")}
-    fun observeLocation(label:String,latitude:Double?=null,longitude:Double?=null)=update{if(it.moving)it else it.copy(gpsReady=true,locationLabel=label,lat=latitude,lon=longitude,mealStep=DiningStep.DESTINATION)}
+    fun observeLocation(label:String,latitude:Double?=null,longitude:Double?=null)=update{
+        if(latitude==null||longitude==null||!latitude.isFinite()||!longitude.isFinite()||latitude !in -90.0..90.0||longitude !in -180.0..180.0) it
+        else { lastLocationAt=SystemClock.elapsedRealtime(); it.copy(gpsReady=true,locationLabel=label,lat=latitude,lon=longitude,
+            mealStep=if(it.mealStep==DiningStep.LOCATION)DiningStep.DESTINATION else it.mealStep) }
+    }
+    fun role(value:CabinRole)=update{if(it.canEdit)it.copy(role=value)else it}
+
+    private fun locationUnavailable()=update{it.copy(gpsReady=false,lat=null,lon=null,locationShared=false,confirmedLocation=null,note="현재 위치를 읽지 못했습니다. GPS 수신과 위치 권한을 확인해 주세요.")}
     @Suppress("MissingPermission") fun actualGps(){
         try{
             val manager=getApplication<Application>().getSystemService(Context.LOCATION_SERVICE) as LocationManager
             val location=manager.getProviders(true).mapNotNull{manager.getLastKnownLocation(it)}.filter{SystemClock.elapsedRealtimeNanos()-it.elapsedRealtimeNanos in 0L..30_000_000_000L}.minByOrNull{it.accuracy}
             if(location==null){
-                observeLocation("Pleos 내비게이션 연동 위치 · ${mutable.value.destination.name} 인근", 37.5042, 126.7235)
+                locationUnavailable()
                 return
             }
             observeLocation("현재 위치 · 오차 약 ${location.accuracy.toInt()}m",location.latitude,location.longitude)
         }catch(_:SecurityException){
-            observeLocation("Pleos 내비게이션 연동 위치 · ${mutable.value.destination.name} 인근", 37.5042, 126.7235)
+            locationUnavailable()
         }
     }
     fun startTrip(access:Boolean=false)=update{s->
@@ -136,11 +128,12 @@ class MobilityViewModel(app: Application) : AndroidViewModel(app) {
     }
     fun selectMenu(menu:DiningMenu,voice:Boolean=false)=update{s->
         if(!s.servicesReady)s.copy(note="주문 서비스를 연결한 뒤 메뉴를 선택할 수 있습니다.")
+        else if(!s.gpsReady)s.copy(note="현재 위치를 먼저 확인해 주세요.")
         else if(!s.vehicleValid||s.order!=null||(!s.canEdit&&!voice))s.copy(note="주행 중에는 음성으로 메뉴를 확인해 주세요.")
         else s.copy(selectedMenu=menu,mealStep=DiningStep.REVIEW,note="[${menu.storeName}] ${menu.name} · ${menu.price}원 · ${s.destination.name} 도착 맞춤 픽업")
     }
     fun confirmMeal(voice:Boolean=false)=update{s->
-        if(!s.servicesReady||!s.vehicleValid)s.copy(note="차량 및 주문 서비스 상태를 확인해 주세요.")
+        if(!s.servicesReady||!s.vehicleValid||!s.gpsReady)s.copy(note="현재 위치·차량 및 주문 서비스 상태를 확인해 주세요.")
         else MobilityRules.confirmOrder(s,voice)?.let{s.copy(order=it,mealStep=DiningStep.TRACK,note="[${it.menu.storeName}] 도착 시간 맞춤 주문을 접수했습니다 (모의 매장 연동).")}?:s.copy(note="메뉴·금액·수령 위치와 차량 상태를 다시 확인해 주세요.")
     }
     fun cancelOrder()=update{s->
@@ -167,11 +160,12 @@ class MobilityViewModel(app: Application) : AndroidViewModel(app) {
         if(!s.canEdit||!s.servicesReady)s.copy(note="P단 정차 및 차량 연결 상태에서 하차 지점을 선택해 주세요.")
         else{
             val best=MobilityRules.assess(s.needs).firstOrNull{it.eligible}?.bay
-            val place=if(s.destination.id=="PLEOS_CURRENT")s.destination else MobilityCatalog.culture
-            val nextPhase=if(s.source==VehicleSource.VEHICLE&&s.canEdit)DrivePhase.ARRIVED else DrivePhase.IDLE
-            JourneyTransitions.newTrip(s,place).copy(
-                order=s.order,selectedMenu=s.selectedMenu,mealStep=s.mealStep,received=s.received,
-                routeReady=true,gpsReady=s.gpsReady||s.source==VehicleSource.VEHICLE,
+            val place=s.destination
+            val nextPhase=s.phase
+            s.copy(
+                locationVersion=s.locationVersion+1,locationShared=false,confirmedLocation=null,
+                spaceChecked=false,rampReady=false,staffAccepted=false,accessApproved=false,exitProgress=0,exitHeld=false,
+                routeReady=s.routeReady,gpsReady=s.gpsReady,
                 phase=nextPhase,
                 remaining=place.eta.coerceAtLeast(s.remaining),total=maxOf(s.total,place.eta,1),remainingMeters=s.remainingMeters?:place.meters,
                 bay=best,purpose=ArrivalPurpose.ACCESS,accessTrip=best!=null,
@@ -180,11 +174,12 @@ class MobilityViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
     fun chooseBay(bay:AccessBay)=update{s->
-        if(!s.canEdit)s.copy(note="P단 정차 상태에서 하차 지점을 선택해 주세요.")
+        if(!s.canEdit||!MobilityRules.assess(s.needs,listOf(bay)).first().eligible)s.copy(note="하차 조건에 맞는 지점을 정차 후 선택해 주세요.")
         else s.copy(
             bay=bay,purpose=ArrivalPurpose.ACCESS,accessTrip=true,
-            gpsReady=s.gpsReady||s.source==VehicleSource.VEHICLE,
-            phase=if(s.source==VehicleSource.VEHICLE&&s.canEdit)DrivePhase.ARRIVED else s.phase,
+            locationVersion=s.locationVersion+1,locationShared=false,confirmedLocation=null,
+            gpsReady=s.gpsReady,
+            phase=s.phase,
             spaceChecked=false,rampReady=false,staffAccepted=false,obstacle=false,accessApproved=false,exitProgress=0,exitHeld=false,
             note="✓ [${bay.name}] 선택 완료 (입구까지 ${bay.walk}m) — 오른쪽에서 하차 전 안전 조건을 확인하세요."
         )
@@ -194,20 +189,18 @@ class MobilityViewModel(app: Application) : AndroidViewModel(app) {
         else s.copy(accessTrip=false,bay=null,spaceChecked=false,rampReady=false,staffAccepted=false,obstacle=false,accessApproved=false,exitProgress=0,exitHeld=false,note="하차 지원 조건과 후보 베이를 다시 선택합니다.")
     }
     fun check(name:String,value:Boolean)=update{s->
-        val readyState=if(s.source==VehicleSource.VEHICLE&&s.canEdit&&s.phase==DrivePhase.IDLE)s.copy(phase=DrivePhase.ARRIVED) else s
+        val readyState=s
         JourneyTransitions.observe(readyState,name,value)
     }
     fun approveExit()=update{if(!MobilityRules.canExit(it))it.copy(note="정차·주변 공간·요청한 지원을 다시 확인해 주세요.")else it.copy(accessApproved=true,exitHeld=false,note="하차 준비를 확인했습니다. 주변 상황이 바뀌면 다시 확인해야 합니다.")}
     fun completeAccess()=update{if(it.accessApproved&&MobilityRules.exitConditions(it))it.copy(exitProgress=100,note="입구 도착을 확인했습니다.")else it}
     fun shareLocation()=update{if(!it.canEdit||!it.gpsReady)it.copy(note="정차 후 현재 위치를 확인해 주세요.")else it.copy(locationShared=true,confirmedLocation=it.locationKey,note="현재 인계 위치를 확인했습니다.")}
     fun currentShareState():MobilityState?=mutable.value.takeIf{it.canShareLocation}
+    fun invalidateHandoff()=update{it.copy(locationShared=false,confirmedLocation=null)}
     fun receive()=update{if(it.received||it.phase!=DrivePhase.ARRIVED||!it.vehicleValid||!it.foodReady||(it.destination.id=="RIVER"&&!it.canShareLocation))it.copy(note="정차·음식 도착·인계 위치를 확인해 주세요.")else it.copy(received=true,note="음식 수령을 확인했습니다.")}
-    /** User-triggered arrival check on parked vehicle so all interactive flows can be completed on screen. */
     fun markArrivedForCheck()=update{s->
-        if(!s.canEdit)s.copy(note="P단 정차 상태에서 도착 확인을 진행해 주세요.")
-        else s.copy(phase=DrivePhase.ARRIVED,routeReady=true,remaining=0,remainingMeters=0,
-            elapsed=maxOf(s.elapsed,(s.order?.let{it.dispatchAt+it.menu.lead}?:0),600),
-            rampReady=s.needs.wheelchair,staffAccepted=s.needs.staff,
-            note="목적지 정차 및 매장·하차 지원 준비 완료 상태를 확인했습니다.")
+        if(!s.canEdit)s.copy(note="P단 정차 후 도착을 확인해 주세요.")
+        else s.copy(phase=DrivePhase.ARRIVED,remaining=0,remainingMeters=0,
+            note="사용자가 도착을 확인했습니다. 음식·지원 준비는 별도로 확인하세요.")
     }
 }

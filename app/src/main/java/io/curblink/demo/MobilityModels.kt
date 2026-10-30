@@ -34,8 +34,9 @@ data class MobilityState(
     val uxRestricted: Boolean = false, val routeReady: Boolean = false, val currentLane: Int = 2,
     val onMainRoad: Boolean = true, val remainingMeters: Int? = null,
     val servicesReady: Boolean = false,
-    val navigationConnected: Boolean = false,
+    val navigationConnected: Boolean = false, val appDestinationSelected: Boolean = false,
     val laneTraffic: Map<Int, LaneTraffic> = emptyMap(), val laneDataValid: Boolean = true,
+    val laneContext: LaneContext = LaneContext(),
     val tripId: String = java.util.UUID.randomUUID().toString(), val locationVersion: Int = 0,
     val confirmedLocation: String? = null, val exitHeld: Boolean = false,
     val page: Int = 0, val destination: DemoPlace = MobilityCatalog.home, val purpose: ArrivalPurpose = ArrivalPurpose.PICKUP,
@@ -58,7 +59,7 @@ data class MobilityState(
         else if (!onMainRoad) LaneAdvice(null, "본선 차선 안내 종료 · 현재 접근 안내를 따르세요", emptyList())
         else LaneRecommendation.rank(
         currentLane,
-        purpose, distance, laneTraffic, laneDataValid && vehicleValid)
+        purpose, distance, laneTraffic, laneDataValid && vehicleValid, laneContext)
     val progress get() = if (phase == DrivePhase.IDLE) 0f else (1f - remaining.toFloat() / total.coerceAtLeast(1)).coerceIn(0f, 1f)
     val distance get() = remainingMeters ?: (destination.meters * (1f - progress)).toInt()
     val mealStatus: String get() {

@@ -1,8 +1,28 @@
+> **현재 작업 브랜치: `integration` — 시뮬레이션 + APK 통합 개발·검증**
+>
+> [최종 main](https://github.com/leechanghwanspace/Pleos-CurbLink/tree/main) · [웹 시뮬레이션](https://github.com/leechanghwanspace/Pleos-CurbLink/tree/simulation) · [통합 개발](https://github.com/leechanghwanspace/Pleos-CurbLink/tree/integration) · [APK 단독](https://github.com/leechanghwanspace/Pleos-CurbLink/tree/apk)
+>
+> **[어떤 브랜치를 열어야 하나요? → 브랜치 안내](docs/BRANCH_GUIDE.md)**
+> 공통 변경의 합류점은 `integration`입니다. `main`은 대상 기기 검증 후 최종본으로 승격합니다. 현재 0.5는 빌드·규칙 시험을 통과한 개발본이며, 실제 Pleos 실행 검증은 남아 있습니다.
+
 # CurbLink Drive
 
 **목적에 맞는 마지막 500m — 목적지 도착, 1~4차선 최적 경로 탐색, 식사 시간 맞춤 주문, 배리어프리 하차와 현장 인계를 연결하는 차량용 모빌리티 플랫폼**
 
-현재 활성 작업 브랜치는 **`codex/simulation-app-redesign`** (`main` 브랜치 보존, 프리뷰 버전 **0.4-pleos-connected-preview** / versionCode 5)입니다.
+현재 개발 브랜치는 **`integration`**입니다. `origin/codex/simulation-app-redesign`의 **0.4 UI**를 기준으로 **0.5-arrival-studio / versionCode 6**으로 개선했습니다. `main`과 기존 배포물은 보존했습니다.
+
+## 0.5 디자인·기능 업데이트 — 2026-10-30
+
+- **[통합 목업 파일](release/CurbLink-Drive-0.5-mockup.html)**: 브라우저에서 여는 단일 HTML. 인터랙티브 4개 화면, 웹 목업 캡처 4장, 웹 목업 시연 영상, APK 다운로드를 포함합니다. **새 APK 실행 캡처·Pleos 영상이 아닙니다.**
+- **[설치용 APK](release/CurbLink-Drive-0.5-arrival-studio.apk)**: Compose 네이티브 UI, Android 10 이상 / 자동차 기능 required / debug 서명.
+- [가벼운 개발용 목업](release/studio/index.html) · [작업 결과·남은 연동](docs/CONTEST_0_5_HANDOFF.md) · [검증 기록](release/VERIFICATION-0.5.json)
+
+앱 내 목적지 선택 유지, 신호·대기열·분기점 조기 준비 규칙, GPS 실패 시 고정 좌표 제거, 음성 응답 읽기, 시간 맞춤 메뉴, 경사·단차·문 개방 공간 비교, 위치 카드와 실제 이미지 첨부 공유를 반영했습니다.
+
+**현재 목적지는 견본 3곳입니다. 실제 POI 검색·경로 생성·차선/신호/정체 제공자, 배달 주문·시설·어라운드뷰 SDK는 연결되지 않았습니다.** 다른 내비 목적지의 ETA를 앱 목적지에 붙이지 않습니다. 일치하는 경로 관측이 없으면 경로 연결 대기, 차선 입력이 없으면 추천 대기로 표시합니다. 동승자 모드 선택만으로 차량 UX 제한을 해제하지 않습니다.
+
+이번 PC에서는 APK/시험 APK 빌드·JVM 규칙·lint·웹 목업 검증까지만 진행합니다. **0.5 실제 APK 캡처·Pleos 시연 영상·공식 폼팩터·음성·실카메라 검증은 집 PC에서 수행할 항목**입니다. 아래 0.4 및 0.2 실제 캡처·연동 기록은 이전 버전의 증거입니다.
+
 
 > **코덱스(Codex) / 안티그래피(Antigravity) 이어하기 안내**
 > - **다음 단계 핵심 작업 명세서**: **[`docs/SIMULATION_APP_PARITY_PLAN.md`](docs/SIMULATION_APP_PARITY_PLAN.md)** (시뮬레이션 개편 및 앱 내 정적 1~4차선 목업을 실제 시뮬레이션 기반 동적 경로 탐색으로 전환하기 위한 전체 가이드)
@@ -13,7 +33,7 @@
 
 [차량 앱 0.4 APK](release/CurbLink-Drive-0.4-pleos-connected-preview.apk) · [0.4 실행·한계](release/NATIVE-PREVIEW.md) · [0.2 APK 다운로드](release/CurbLink-Drive-0.2-demo.apk) · [검증 기록](release/BUILD-VERIFICATION.txt)
 
-## 현재 기능 및 다음 개편 과제 (`codex/simulation-app-redesign`)
+## 이전 0.4 기준 기능 및 개편 계획 (`codex/simulation-app-redesign`)
 
 | 영역 | 현재 구현 내용 (`0.4-pleos-connected-preview`) | 다음 단계 개편 과제 ([`SIMULATION_APP_PARITY_PLAN.md`](docs/SIMULATION_APP_PARITY_PLAN.md)) |
 |---|---|---|

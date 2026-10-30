@@ -12,8 +12,8 @@ android {
         applicationId = "io.curblink.demo"
         minSdk = 29
         targetSdk = 35
-        versionCode = 5
-        versionName = "0.4-pleos-connected-preview"
+        versionCode = 6
+        versionName = "0.5-arrival-studio"
         testInstrumentationRunner = "io.curblink.demo.VehicleAppInstrumentation"
     }
     buildFeatures { compose = true }

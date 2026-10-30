@@ -85,7 +85,7 @@ class PlatformConnections(private val context: Context, private val model: Mobil
         model.navigationStatus(true)
     }
     private fun publishTrip(seconds: Int, meters: Int) {
-        if (seconds < 0 || meters < 0 || destination == null) return
+        if (seconds < 0 || meters < 0 || destination == null || !model.acceptsNavigation(destination!!.name)) return
         model.observeTrip(TripObservation(seconds, meters, ((SystemClock.elapsedRealtime()-routeStarted)/1000).toInt(), arrived))
     }
     fun start() {

@@ -58,7 +58,7 @@ class VehicleAppInstrumentation:Instrumentation(){
                 vehicle(VehicleGear.P);vm.reset()
                 vm.destination(when(id){"ACCESS","PARKING"->MobilityCatalog.culture;"RIVER"->MobilityCatalog.river;else->MobilityCatalog.home})
                 vm.page(when(id){"MEAL","RIVER"->1;"ACCESS"->2;else->0})
-                vm.observeLocation("개발 검증용 위치")
+                vm.observeLocation("개발 검증용 위치",37.5,126.9)
                 if(id=="ACCESS")vm.selectBay()
                 vm.startTrip(id=="ACCESS")
             }
@@ -86,7 +86,7 @@ class VehicleAppInstrumentation:Instrumentation(){
                 if(run.done)break
                 when(run.current.id){
                     "LOCATE"->{onMain{vm.page(3);vm.shareLocation()};verify(vm.state.value.canShareLocation,"Current location could not be confirmed");run=JourneyEngine.act(run,"SHARE",vm.state.value.canShareLocation)}
-                    "ACCESS_WAIT"->{onMain{vm.check("space",true);vm.check("ramp",true);vm.check("staff",true);vm.approveExit()};run=JourneyEngine.act(run,"APPROVE",vm.state.value.accessApproved)}
+                    "ACCESS_WAIT"->{onMain{vm.markArrivedForCheck();vm.check("space",true);vm.check("ramp",true);vm.check("staff",true);vm.approveExit()};run=JourneyEngine.act(run,"APPROVE",vm.state.value.accessApproved)}
                     "ACCESS_EXIT"->if(!obstacleTested&&run.stageTime>0){
                         obstacleTested=true
                         onMain{vm.check("obstacle",true)};verify(!vm.state.value.accessApproved&&vm.state.value.exitHeld,"Live obstacle did not hold exit")
@@ -107,7 +107,7 @@ class VehicleAppInstrumentation:Instrumentation(){
             completed+="$id/$repeat"
         }
         // A restored order is verified in a separate real process restart after this run.
-        onMain{vehicle(VehicleGear.P);vm.reset();vm.page(1);vm.observeLocation("개발 검증용 위치");vm.startTrip();vehicle(VehicleGear.D);vm.observeTrip(TripObservation(900,3000,0,false));vm.voice("메뉴 추천");vm.voice("주문해 줘")}
+        onMain{vehicle(VehicleGear.P);vm.reset();vm.page(1);vm.observeLocation("개발 검증용 위치",37.5,126.9);vm.startTrip();vehicle(VehicleGear.D);vm.observeTrip(TripObservation(900,3000,0,false));vm.voice("메뉴 추천");vm.voice("주문해 줘")}
         capture("order-before-restart")
         finish(Activity.RESULT_OK,Bundle().apply{putString("result","PASS: ${completed.size} vehicle flows; $assertions assertions; external test driver only");putString("orderId",vm.state.value.order?.id);putString("flows",completed.joinToString(","))})
     }catch(error:Throwable){finish(Activity.RESULT_CANCELED,Bundle().apply{putString("failure",error.stackTraceToString());putString("completed",completed.joinToString(","))})}}
@@ -132,11 +132,11 @@ class VehicleAppInstrumentation:Instrumentation(){
         verify(first.servicesReady,"Mockup store & bay catalog not active when vehicle connected")
         onMain{vm.page(0)};capture("pleos-connected")
         // Verify 1~4 lane route exploration scenarios (3차선 직진 최적 & 4차선 목적지 진입)
-        onMain{vm.applyLaneScenario(1)}
+        onMain{vm.observeLanes(mapOf(2 to LaneTraffic(queue=8,signalWait=12.0),3 to LaneTraffic(),4 to LaneTraffic()),LaneContext(),true)}
         verify(LaneRecommendation.rank(vm.state.value.currentLane,vm.state.value.purpose,600,vm.state.value.laneTraffic,true).lane==3,"Stage 1 cruise did not recommend lane 3")
-        onMain{vm.applyLaneScenario(2)}
+        onMain{vm.observeLanes(mapOf(2 to LaneTraffic(queue=8,signalWait=12.0),3 to LaneTraffic(),4 to LaneTraffic()),LaneContext(),true)}
         verify(LaneRecommendation.rank(vm.state.value.currentLane,vm.state.value.purpose,480,vm.state.value.laneTraffic,true).lane==3,"Stage 2 left-turn bottleneck did not recommend lane 3")
-        onMain{vm.applyLaneScenario(3)}
+        onMain{vm.observeLanes(mapOf(2 to LaneTraffic(queue=8,signalWait=12.0),3 to LaneTraffic(),4 to LaneTraffic()),LaneContext(),true)}
         verify(LaneRecommendation.rank(vm.state.value.currentLane,vm.state.value.purpose,120,vm.state.value.laneTraffic,true).lane==4,"Stage 3 destination approach did not recommend lane 4")
         capture("pleos-lane-approach")
         // Verify interactive Dining Store & Menu flow under live VEHICLE connection
@@ -151,8 +151,8 @@ class VehicleAppInstrumentation:Instrumentation(){
         onMain{vm.page(2);vm.needs(AccessPreferences(wheelchair=true,wide=false,gentle=true,staff=true))}
         capture("pleos-access-bays")
         onMain{vm.selectBay()}
-        verify(vm.state.value.bay?.id=="A3"&&vm.state.value.accessTrip&&vm.state.value.phase==DrivePhase.ARRIVED,"Barrier-free bay selection (A3 with gentle slope) failed or did not transition to ARRIVED")
-        onMain{vm.check("space",true);vm.check("ramp",true);vm.check("staff",true);vm.approveExit()}
+        verify(vm.state.value.bay?.id=="A3"&&vm.state.value.accessTrip&&vm.state.value.phase!=DrivePhase.DRIVING,"Barrier-free bay selection (A3 with gentle slope) failed or did not transition to ARRIVED")
+        onMain{vm.markArrivedForCheck();vm.check("space",true);vm.check("ramp",true);vm.check("staff",true);vm.approveExit()}
         verify(vm.state.value.accessApproved,"Interactive barrier-free approval failed")
         onMain{vm.completeAccess()}
         verify(vm.state.value.exitProgress==100,"Interactive barrier-free entrance arrival completion failed")

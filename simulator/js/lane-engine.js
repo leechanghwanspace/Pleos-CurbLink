@@ -2,7 +2,7 @@
   'use strict';
   const lanes = [
     { id: 1, turns: ['LEFT'] }, { id: 2, turns: ['STRAIGHT', 'LEFT'] },
-    { id: 3, turns: ['STRAIGHT'] }, { id: 4, turns: ['RIGHT'], curb: true }
+    { id: 3, turns: ['STRAIGHT'] }, { id: 4, turns: ['STRAIGHT', 'RIGHT'], curb: true }
   ];
   const DestinationMode = Object.freeze({ PICKUP: 'PICKUP', SHORT_STOP: 'SHORT_STOP', PARKING: 'PARKING' });
   const demoDestination = {
@@ -38,28 +38,34 @@
     const { currentLane = 2, phase = 'CRUISE', distance = 300,
       traffic = {}, valid = true } = input;
     if (!valid) return { lane: null, reason: '정보 만료 · 추천 보류', costs: [] };
+    const context=input.context||{};
+    if(!Number.isInteger(currentLane)||currentLane<1||currentLane>4||!Number.isFinite(distance)||distance<0||Object.values(traffic).some(t=>['queue','signalWait','blockProbability','extraWait','uncertainty'].some(k=>t[k]!=null&&!Number.isFinite(t[k]))))return {lane:null,reason:'경로 정보 확인 필요',costs:[]};
+    const exit=context.exitMeters!=null&&context.exitMeters<=1500, exitLane=context.exitLane??4;
+    if(exit&&(!Number.isFinite(context.exitMeters)||context.exitMeters<0||!Number.isInteger(exitLane)||exitLane<1||exitLane>4))return {lane:null,reason:'경로 정보 확인 필요',costs:[]};
+    if(exit&&(context.laneChangeAllowed===false||Math.abs(currentLane-exitLane)*150>context.exitMeters))return {lane:currentLane,reason:'분기점 진입 보류 · 급한 변경 없이 다음 경로로 재탐색',costs:[],alternatives:[currentLane]};
     const profile = input.destinationMode ? destinationProfile(input.destinationMode, distance, input.zone) : null;
-    const approaching = profile ? profile.approaching : phase === 'APPROACH';
-    const goal = approaching ? (profile?.targetLane ?? 4) : 3;
+    const approaching = exit || (profile ? profile.approaching : phase === 'APPROACH');
+    const goal = exit ? exitLane : approaching ? (profile?.targetLane ?? 4) : 3;
     const urgency = profile ? profile.approachWeight : approaching ? 4 + 12 * (1 - Math.min(1, Math.max(0, distance) / 300)) : 0;
     const costs = lanes.map(lane => {
       const t = traffic[lane.id] || {};
-      const allowed = !t.closed && (approaching ? lane.id >= Math.min(currentLane, goal) && lane.id <= Math.max(currentLane, goal) : lane.turns.includes('STRAIGHT'));
+      const allowed = !t.closed && (context.laneChangeAllowed!==false || lane.id===currentLane) && (approaching ? lane.id >= Math.min(currentLane, goal) && lane.id <= Math.max(currentLane, goal) : lane.turns.includes('STRAIGHT'));
       const changes = Math.abs(lane.id - currentLane);
       // 50 m per change is a demo feasibility assumption, not a road safety standard.
       const reachable = changes * 50 <= distance;
       const travel = 12;
       const queue = Math.max(0, t.queue || 0) * 2 + Math.max(0, t.signalWait || 0);
-      const mixed = lane.turns.length > 1 ? Math.max(0, Math.min(1, t.blockProbability || 0)) * Math.max(0, t.extraWait || 0) : 0;
+      const mixed = ((lane.id===2 && !context.simultaneousGreen) || lane.id===4) ? Math.max(0, Math.min(1, t.blockProbability || 0)) * Math.max(0, t.extraWait || 0) : 0;
       const change = changes * 3;
-      const approach = Math.abs(lane.id - goal) * urgency;
+      const approach = Math.abs(lane.id - goal) * (exit ? 24 : urgency) + (!approaching && lane.id===4 ? 8 : 0);
       const uncertainty = Math.max(0, Math.min(1, t.uncertainty || 0)) * 10;
       return { ...lane, travel, queue, mixed, change, approach, uncertainty,
         cost: allowed && reachable ? travel + queue + mixed + change + approach + uncertainty : Infinity };
     });
     const best = costs.reduce((a, b) => b.cost < a.cost ? b : a);
     return { lane: Number.isFinite(best.cost) ? best.id : null, costs,
-      reason: approaching ? '선택한 정차·주차 진입 차선으로 순차 접근' : phase === 'REJOIN' ? '인접 본선 합류 후 직진 차선 추천' : best.id === 3 ? '좌회전 대기 영향 회피 · 직진 전용 추천' : '변경 비용을 고려해 현재 차선 유지' };
+      alternatives: context.simultaneousGreen && !approaching ? costs.filter(x=>[2,3].includes(x.id)&&Number.isFinite(x.cost)&&x.cost<=best.cost+6).map(x=>x.id) : Number.isFinite(best.cost) ? [best.id] : [],
+      reason: exit ? `${context.exitMeters}m 앞 분기점 · ${exitLane}차선까지 한 차선씩 미리 준비` : context.simultaneousGreen && !approaching ? '직좌 동시 신호 · 2·3차선 비교 후 원활한 차선 유지' : approaching ? '선택한 정차·주차 진입 차선으로 순차 접근' : phase === 'REJOIN' ? '인접 본선 합류 후 직진 차선 추천' : best.id === 3 ? '좌회전 대기 영향 회피 · 직진 전용 추천' : '변경 비용을 고려해 현재 차선 유지' };
   }
   function nextChange(current, target, gapSafe, legal = true) {
     if (target == null || current === target) return { lane: current, allowed: false, reason: '현재 차선 유지' };

@@ -10,7 +10,7 @@ object JourneyStore {
         val p = Properties()
         fun put(key: String, value: Any) { p.setProperty(key, value.toString()) }
         put("version", 1); put("trip", s.tripId); put("destination", s.destination.id)
-        put("purpose", s.purpose.name); put("phase", s.phase.name); put("page", s.page)
+        put("appDestinationSelected", s.appDestinationSelected); put("purpose", s.purpose.name); put("phase", s.phase.name); put("page", s.page)
         put("remaining", s.remaining); put("elapsed", s.elapsed); put("total", s.total)
         put("locationVersion", s.locationVersion); put("accessTrip", s.accessTrip)
         put("bay", s.bay?.id ?: ""); put("received", s.received)
@@ -48,7 +48,7 @@ object JourneyStore {
             val access = flag("accessTrip")
             val bay = p.getProperty("bay")?.takeIf { it.isNotEmpty() }?.let { id -> MobilityCatalog.bays.first { it.id == id } }
             require(!access || bay != null)
-            base.copy(tripId = trip, destination = destination, purpose = ArrivalPurpose.valueOf(required("purpose")),
+            base.copy(tripId = trip, destination = destination, appDestinationSelected = p.getProperty("appDestinationSelected", "true").toBooleanStrict(), purpose = ArrivalPurpose.valueOf(required("purpose")),
                 phase = DrivePhase.valueOf(required("phase")), page = number("page").also { require(it in 0..4) },
                 remaining = remaining, elapsed = elapsed, total = total, paused = true, vehicleValid = false,
                 gpsReady = false, role = CabinRole.DRIVER, locationVersion = number("locationVersion") + 1,

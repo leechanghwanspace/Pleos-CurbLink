@@ -1,12 +1,13 @@
 # Dot-source from PowerShell: . ./scripts/use-home-env.ps1
 $ErrorActionPreference = 'Stop'
-$jdkHome = [Environment]::GetEnvironmentVariable('JAVA_HOME', 'User')
-if (-not $jdkHome) { $jdkHome = $env:JAVA_HOME }
+$jdkHome = $env:JAVA_HOME
+if (-not $jdkHome) { $jdkHome = [Environment]::GetEnvironmentVariable('JAVA_HOME', 'User') }
 if (-not $jdkHome -or -not (Test-Path -LiteralPath (Join-Path $jdkHome 'bin/java.exe'))) {
     throw 'Install JDK17 and set JAVA_HOME first.'
 }
 $env:JAVA_HOME = $jdkHome
-$sdkHome = [Environment]::GetEnvironmentVariable('ANDROID_HOME', 'User')
+$sdkHome = $env:ANDROID_HOME
+if (-not $sdkHome) { $sdkHome = [Environment]::GetEnvironmentVariable('ANDROID_HOME', 'User') }
 if (-not $sdkHome) { $sdkHome = Join-Path $env:LOCALAPPDATA 'Android/Sdk' }
 if (-not (Test-Path -LiteralPath $sdkHome)) { throw 'Android SDK not found.' }
 $env:ANDROID_HOME = $sdkHome

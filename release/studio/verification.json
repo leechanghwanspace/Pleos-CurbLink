@@ -1,0 +1,40 @@
+{
+  "source": "browser design mockup; NOT APK or Pleos execution",
+  "errors": [],
+  "layout": [
+    {
+      "viewport": "1682x1210",
+      "screens": 4,
+      "horizontalOverflow": false
+    },
+    {
+      "viewport": "1920x1080",
+      "screens": 4,
+      "horizontalOverflow": false
+    },
+    {
+      "viewport": "1280x720",
+      "screens": 4,
+      "horizontalOverflow": false
+    },
+    {
+      "viewport": "840x1212",
+      "screens": 4,
+      "horizontalOverflow": false
+    },
+    {
+      "viewport": "480x900",
+      "screens": 4,
+      "horizontalOverflow": false
+    }
+  ],
+  "flows": [
+    "signals",
+    "early exit",
+    "late exit reroute",
+    "explicit order",
+    "wide bay",
+    "approval invalidation",
+    "handoff preview"
+  ]
+}

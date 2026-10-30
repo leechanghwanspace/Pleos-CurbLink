@@ -92,4 +92,12 @@ class JourneyTransitionTest {
         assertEquals(s, SimulationDriver.advance(s.copy(paused = true), 900).copy(paused = false))
         assertEquals(100, SimulationDriver.advance(approved(), 900).exitProgress)
     }
+    @Test fun appDestinationOwnershipSurvivesRestoreAndLegacyMigration() {
+        val state=MobilityState(destination=MobilityCatalog.culture,appDestinationSelected=true)
+        val encoded=JourneyStore.encode(state)
+        assertTrue(JourneyStore.restore(encoded,MobilityState()).appDestinationSelected)
+        assertEquals("CULTURE",JourneyStore.restore(encoded,MobilityState()).destination.id)
+        val legacy=encoded.lines().filterNot{it.startsWith("appDestinationSelected=")}.joinToString("\n")
+        assertTrue(JourneyStore.restore(legacy,MobilityState()).appDestinationSelected)
+    }
 }
