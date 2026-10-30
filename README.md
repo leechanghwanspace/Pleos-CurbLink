@@ -1,175 +1,108 @@
-> **현재 브랜치: `main` — 검증된 최종 기준선**
->
-> 개발 중인 0.5는 `integration`에 있습니다. 대상 Pleos의 실제 실행·캡처·영상 검증이 남아 있으므로 이 브랜치의 기존 0.2 제품 코드를 자동으로 교체하지 않았습니다. 이번 main 변경은 안내 문서뿐입니다.
->
-> | 보려는 내용 | 열 브랜치 |
-> |---|---|
-> | 최종 검증을 마친 기준선 | **main — 현재 위치** |
-> | 도로·차량 내부·주변 시야 웹 시뮬레이션 | [simulation](https://github.com/leechanghwanspace/Pleos-CurbLink/tree/simulation) |
-> | 시뮬레이션 + APK 통합 개발·검증 | [integration](https://github.com/leechanghwanspace/Pleos-CurbLink/tree/integration) |
-> | 네이티브 앱 개발·APK만 실행 | [apk](https://github.com/leechanghwanspace/Pleos-CurbLink/tree/apk) |
->
-> **[브랜치 전체 안내와 기존 브랜치 대응표](docs/BRANCH_GUIDE.md)**
->
-> `automation/*`, `feature/simulator-bridge`, `codex/simulation-app-redesign`는 과거 이력입니다. 새 작업은 위 네 브랜치에서 시작합니다. 공통 변경은 integration에서 모으고 검증 후 main으로 승격합니다.
+> **main — 사용자 요청으로 반영한 최신 0.5.2 프리뷰**
 
-# CurbLink Drive
+# CurbLink Drive 0.5.2
 
-**목적에 맞는 마지막 500m — 목적지 도착, 식사 시간 맞춤, 배리어프리 하차와 현장 인계를 연결하는 차량용 앱 프로토타입**
+도착 이후의 식사·편안한 하차·현장 인계를 준비하는 네이티브 차량 앱과 별도 웹 주행 시뮬레이터입니다.
 
-현재 버전은 **0.2-contest-demo**입니다. Kotlin / Jetpack Compose 네이티브 Android 앱과 별도 웹 참고 시뮬레이터로 구성됩니다.
+[main](https://github.com/leechanghwanspace/Pleos-CurbLink/tree/main) · [simulation](https://github.com/leechanghwanspace/Pleos-CurbLink/tree/simulation) · [integration](https://github.com/leechanghwanspace/Pleos-CurbLink/tree/integration) · [apk](https://github.com/leechanghwanspace/Pleos-CurbLink/tree/apk)
 
-[APK 다운로드](release/CurbLink-Drive-0.2-demo.apk) · [설치·시연 안내](release/README.txt) · [개발 인수인계](docs/DEVELOPMENT_HANDOFF.md) · [검증 기록](release/BUILD-VERIFICATION.txt)
+## 다운로드와 검증
 
-최신 검토: [품질 감사·네이티브 기능 일치 계획](docs/reviews/2026-10-29/AUDIT.md) — 웹 시연의 6개 여정은 APK 내부 실행을 필수 목표로 하며, 현재 기능 격차와 결함은 감사 문서에 구분했습니다.
+- **[차량 앱 APK — 0.5.2-arrival-preview](release/CurbLink-Drive-0.5.2-arrival-preview.apk)** · [SHA-256](release/CurbLink-Drive-0.5.2-arrival-preview.apk.sha256)
+- [이번 검증 기록](release/VERIFICATION-0.5.2.json) · [변경·남은 검증](docs/UPDATE_0_5_2.md) · [캡처 출처](captures/README.md)
+- versionCode **8** / Android 10 이상 / Automotive 기기 필수 / debug 서명 프리뷰. 기존 설치본과 서명이 다르면 데이터를 삭제하지 말고 인증서를 확인하세요.
+- 기존 [0.5.1 APK](release/CurbLink-Drive-0.5.1-arrival-studio.apk)와 [0.5.1 웹 UI 목업](release/CurbLink-Drive-0.5.1-mockup.html)은 이전 버전입니다. 목업은 실제 APK·도로 시뮬레이션 증거가 아닙니다.
 
-집 PC에서 재개: [설치·클론·다음 작업 한 번에 보기](docs/HOME_PC_START.md)
+차선의 다음 행동·인접 변경 준비·관측에 근거한 이유, 이용 불가 하차 후보의 대안·새 승인, GPS·음성·사진·공유 실패 후 선택 보존과 재시도 안내를 반영했습니다.
 
-## 현재 기능
-
-| 기능 | 구현 내용 |
+| 검증 | 결과와 범위 |
 |---|---|
-| 목적지·도착 의도 | 집·문화센터·한강 등 목적지와 픽업 / 잠시 정차 / 주차 / 배리어프리 하차 선택 |
-| 경로·차선 안내 | 모의 차량 상태와 도착 목적에 따른 경로·권장 차선 HUD |
-| 도착 맞춤 식사 | 위치 탐색 → 목적지 ETA → 조리·배달 시간 기반 메뉴 추천 → 명시적 주문 확인 → 도착 시간 비교 |
-| 역할별 조작 | 운전자 음성 중심 / 동승자 디스플레이 조작. 플랫폼 음성과 시연 입력 구분 |
-| 배리어프리 하차 | 계단·경사·보행 거리·측면 공간·필요한 지원에 따른 베이 추천, 안전 조건 재확인 후 명시적 승인 |
-| 현장 인계 | 모의 주변 상황과 위치 카드로 인계 위치 설명, 사용자 선택으로 공유·수령 확인 |
+| Android 빌드·시험 컴파일·lint | 통과 · 오류 0 / 기존 의존성 갱신 경고 3 |
+| JVM 규칙 시험 | 80개 통과 |
+| Pleos 외부 시험 드라이버 | 18흐름·94조건 통과 · 시험용 관측 입력 |
+| Pleos 실제 서비스 IPC | CarService·NaviHelper 연결·재연결 등 16조건 통과 |
+| 웹 도로 시뮬레이션 | 여섯 여정 완료·원본 PNG 9장·브라우저 오류 없음 |
+| 웹 복구 화면 | A-2 제외→A-3, 후보 없음, 새 승인, 840/480 폭 확인 |
+| 제품 APK 경계·서명·정렬 | 시뮬레이션/시험 코드 제외·v2 서명·16KB 정렬 통과 |
 
-지도·경로·교통·차량 상태·주문/결제·주변 카메라·도어/리프트는 **모의**입니다. Android 위치와 플랫폼 음성은 기기 권한과 서비스 지원 시 사용합니다. 실제 Pleos SDK·Gleo·CarPay·SVM·차량 제어 연동 완료를 의미하지 않습니다.
+사용자 요청으로 검증된 프리뷰 소스를 main에 반영했습니다. **실제 STT/TTS·사진 선택기/공유 대상 전달·TalkBack/로터리·공식 폼팩터는 추가 확인 대상**입니다. 실차 인증·마켓 심사 완료 버전은 아닙니다.
 
-## 실제 APK 실행 화면
+## 최신 차량 앱 화면 — 0.5.2
 
-**0.2 APK 실행 화면 · 2452×1272px · PNG**
+Pleos Connect 2.1.0에서 실제 APK를 실행하고 **Android PixelCopy 앱 창 원본 1682×1210 PNG**로 촬영했습니다. [원본·해시·입력 출처](captures/android/0.5.2/verification.json)
 
-상단 상태바·하단 내비게이션 바와 바깥 여백을 제외한 앱 표시 영역입니다. 확대나 리사이즈 없이 잘라냈습니다.
+차선·하차 대안 화면은 별도 시험 APK의 TEST 관측을 사용합니다. 식사·시설은 견본 데이터이며 실제 주문·결제·시설 제공자 연결 증거가 아닙니다.
 
-### 목적지 설정
+| 도착 안내 · 목표 4차선과 다음 인접 3차선 준비 | 식사 · 목적지 근처 견본 매장 |
+|---|---|
+| ![0.5.2 APK 차선 준비, 외부 시험 입력](captures/android/0.5.2/07-lane-preparation.png) | ![0.5.2 APK 식사 매장, 실제 차량 연결과 견본 데이터](captures/android/0.5.2/02-dining-stores.png) |
 
-[![실제 APK 홈 화면](captures/android/display/01-home.png)](captures/android/display/01-home.png)
+| 편안한 하차 · 지원 조건·후보 비교 | 현장 인계 · 위치 카드 |
+|---|---|
+| ![0.5.2 APK 하차 후보 비교](captures/android/0.5.2/04-access-comparison.png) | ![0.5.2 APK 현장 인계](captures/android/0.5.2/06-handoff.png) |
 
-### 차량 내 식사 주문
+| A-2 이용 불가 → A-3 대안 | 조건에 맞는 후보 없음 |
+|---|---|
+| ![0.5.2 APK 대체 베이](captures/android/0.5.2/08-bay-alternative.png) | ![0.5.2 APK 후보 없음](captures/android/0.5.2/09-bay-no-match.png) |
 
-[![실제 APK 위치 확인](captures/android/display/02-dining-location.png)](captures/android/display/02-dining-location.png)
+[실제 플랫폼 연결 화면](captures/android/0.5.2/01-platform-connected.png) · [주문 검토](captures/android/0.5.2/03-dining-review.png) · [하차 완료 확인](captures/android/0.5.2/05-access-completed.png)
 
-[![실제 APK 조리·배달 시간 기반 메뉴 추천](captures/android/display/03-dining-menu.png)](captures/android/display/03-dining-menu.png)
+CarService 기어·UX 제한 및 NaviHelper 서비스 IPC를 연결했습니다. 이번 실행에서는 선택한 견본 목적지에 일치하는 활성 경로가 없어 `routeReady=false`였습니다. 실제 목적지 경로·ETA 수신 완료로 해석하지 않습니다. 차선/신호/정체·실제 POI 경로 생성·주문/결제·시설·SVM·도어/리프트 제공자는 미연결입니다.
 
-[![실제 APK 주문 확인 후 도착 동기화](captures/android/display/04-dining-order.png)](captures/android/display/04-dining-order.png)
+## 최신 웹 시뮬레이션 — 여섯 여정 검증
 
-### 배리어프리 하차
+`simulator/`의 **가상 도로·차량 내부·합성 주변 시야**입니다. 1920×1200 뷰포트·배율 1에서 요소 영역의 원본 PNG를 수집했습니다. 소프트웨어 렌더링 검증으로 물리 GPU·실차 성능 검증은 아닙니다. [여정 결과·원본 크기·해시](captures/web/0.5.2/verification.json)
 
-[![실제 APK 하차 지원 조건과 베이 후보](captures/android/display/05-access-candidates.png)](captures/android/display/05-access-candidates.png)
+| 골목 픽업 · 승객 탑승 후 본선 복귀 | 주차 · R단 후진 후 P단 정렬 |
+|---|---|
+| ![최신 웹 픽업 주행 시뮬레이션](captures/web/0.5.2/01-driver-pickup.png) | ![최신 웹 후진 주차 시뮬레이션](captures/web/0.5.2/02-parking-reverse.png) |
 
-### 현장 인계
+![최신 웹 잠시 정차와 비상등](captures/web/0.5.2/03-short-stop.png)
 
-[![실제 APK 현장 인계 위치 카드](captures/android/display/06-handoff.png)](captures/android/display/06-handoff.png)
+| 식사 메뉴 · 혼자 운전 시 터치 주문 차단 | 명시적 모의 음성 주문 후 음식·차량 도착 비교 |
+|---|---|
+| ![최신 웹 차량 내부 식사 메뉴](captures/web/0.5.2/04-meal-menu.png) | ![최신 웹 식사 예약 확인](captures/web/0.5.2/05-meal-confirmed.png) |
 
-이미지를 클릭하면 전체 해상도로 볼 수 있습니다. [캡처 정보](captures/README.md)
+![최신 웹 한강 합성 주변 시야와 위치 인계](captures/web/0.5.2/06-river-surround-handoff.png)
 
-## 웹 참고 시연 화면
+| 하차 후보 비교 | P단 정차 후 공간·장비·직원 확인 |
+|---|---|
+| ![최신 웹 배리어프리 후보 비교](captures/web/0.5.2/07-access-comparison.png) | ![최신 웹 하차 안전 확인](captures/web/0.5.2/08-access-safety.png) |
 
-아래는 현재 저장소의 **웹 시뮬레이터 참고 캡처**입니다. 네이티브 APK 실행 화면이 아니며 APK와 화면 배치·세부 동작이 다릅니다. 이전 외관/트렁크 인터록 화면은 웹 진입 화면에서 제거했습니다.
+[입구 도착 완료 원본](captures/web/0.5.2/09-access-complete.png) · [이용 불가 후보·좁은 화면 복구 검증](captures/web/ux-followup-2026-10-30/verification.json)
 
-### 운전자 시점·차선 안내
+픽업·주차·잠시 정차는 출발부터 종료까지, 식사·한강 인계는 명시적 확인과 수령까지, 배리어프리는 안전 조건 확인과 입구 도착까지 검증했습니다. **앱과 웹 동시 실행은 실시간 상태 동기화를 의미하지 않습니다.**
 
-![운전자 시점과 차선 HUD — 웹 참고 시연](captures/web/driver-view.png)
+## 실행과 빌드
 
-가상 도로·건물·수목·보행자 환경에서 목적별 접근 경로를 시연합니다.
-
-### 차량 내부 디스플레이에서 식사 주문
-
-![위치 탐색 단계 — 웹 참고 시연](captures/web/meal-cabin-gps.png)
-
-![도착 시간과 조리·배달 시간을 고려한 메뉴 추천 — 웹 참고 시연](captures/web/meal-cabin-menu.png)
-
-위치 탐색부터 목적지·메뉴 선택, 주문 확인과 도착까지 진행합니다. 운전자·동승자 모드를 구분하며 실제 매장에 주문을 전송하지 않습니다.
-
-### 배리어프리 하차·입구 이동
-
-![거리·경사·측면 공간을 비교하는 하차 후보 — 웹 참고 시연](captures/web/access-comparison.png)
-
-![무단차 하차 베이 정차와 하차 전 확인 — 웹 참고 시연](captures/web/access-arrival.png)
-
-필요한 공간과 도움에 따라 베이·경로가 달라집니다. 정차·안전 조건 확인과 사용자 승인 후 입구 이동을 시연합니다. 후보 지점과 수치는 가상 데이터입니다.
-
-### 주소 설명이 어려운 현장 인계
-
-![모의 주변 시야와 현장 인계 위치 카드 — 웹 참고 시연](captures/web/river-surround-handoff.png)
-
-한강 등에서 주변 시야와 위치 설명 카드로 인계 지점을 공유합니다. 카메라 화면은 가상 장면이며 실제 서라운드뷰 연동이 아닙니다.
-
-## 실행
-
-### Android APK
-
-Android 10(API 29) 이상, target SDK 35, 패키지 `io.curblink.demo`, 버전 코드 2의 **debug 서명 APK**입니다.
+JDK17 / Gradle wrapper 8.9 / Android SDK35 / Python3 / 웹 규칙 시험용 Node.js를 사용합니다. Pleos AVD는 별도로 부팅하고 `adb devices`의 장치를 지정하세요.
 
 ```powershell
-adb install -r release/CurbLink-Drive-0.2-demo.apk
-adb shell am start -n io.curblink.demo/.MainActivity
+. ./scripts/use-home-env.ps1
+# 웹 도로 시뮬레이션만
+./scripts/start-experience.ps1 -Mode Simulation -OpenBrowser
+# APK만 (다른 터미널)
+./scripts/start-experience.ps1 -Mode Apk -Serial emulator-5554
+# 앱과 웹 동시 실행
+./scripts/start-experience.ps1 -Mode Integrated -Serial emulator-5554 -OpenBrowser
 ```
-
-홈 / 경로 / 도착 식사 / 배리어프리 하차 / 현장 인계 화면에서 시연합니다. 상세 단계는 [배포 안내](release/README.txt)를 확인하세요.
-
-### 웹 참고 시뮬레이터
-
-저장소 루트에서 실행합니다. Android 앱은 이 서버 없이 실행됩니다.
-
-```powershell
-python -m http.server 8000
-```
-
-<http://127.0.0.1:8000/simulator/> 접속. React·Babel·Tailwind CDN 로딩에 인터넷이 필요합니다.
-
-| 키 / 버튼 | 흐름 |
-|---|---|
-| 1 골목 픽업 | 우회전 → 골목·건물 앞 탑승 → 회차 → 본선 복귀 |
-| 2 주차장 주차 | 목적지 주차장 진입 → 통로 → 후진 주차 |
-| 3 잠시 정차 | 도로변 접근 → 비상등 정차 → 재합류 |
-| 4 식사 시간 맞춤 | 위치·ETA → 메뉴·주문 → 집 도착·음식 인계 |
-| 5 한강 음식 인계 | 현장 도착 → 모의 주변 시야·위치 설명 → 인계 |
-| 6 배리어프리 하차 | 지원·베이 비교 → 경로 → 정차·승인 → 입구 이동 |
-
-화면 버튼으로 시나리오와 재생 속도를 선택할 수 있습니다.
-
-## 구조와 빌드
-
-| 구분 | 핵심 파일 |
-|---|---|
-| 네이티브 화면 | `MainActivity.kt` → `MobilityApp.kt` |
-| 네이티브 상태·주행 | `MobilityViewModel.kt` — ViewModel / StateFlow / Coroutines |
-| 도메인 규칙 | `MobilityModels.kt` — 목적지·식사·접근성·승인 |
-| 웹 시연 제어 | `simulator/index.html`, `simulator/js/destination-demo.jsx` |
-| 주행·차선 | `simulator/js/mission-engine.js`, `simulator/js/lane-engine.js` |
-| Canvas 2D 렌더링 | `simulator/js/mission-viewport.jsx`, `simulator/js/scenery-assets.js` |
-| 식사·접근성 UI | `simulator/js/meal-cabin.jsx`, `simulator/js/access-cabin.jsx` |
-
-Android 소스: `app/src/main/java/io/curblink/demo/`. Kotlin 2.0.21 / Compose / Material 3 / JDK 17 / Gradle 8.9 / AGP 8.7.3 / SDK 35.
-
-JDK 17·SDK 35 설치 후 `JAVA_HOME`, `ANDROID_HOME`을 설정합니다.
 
 ```powershell
 ./scripts/build-drive.ps1
+# 브라우저 설치는 첫 검증 환경에서 한 번 수행
+python -m pip install playwright
+python -m playwright install chromium
+python scripts/verify-simulation.py
+python scripts/verify-ux-simulator.py
 ```
 
-APK 빌드·테스트 컴파일·lint·JUnitCore 검증 후 배포 APK와 체크섬을 갱신합니다. Windows 테스트 워커 대응과 다른 PC 설정은 [개발 인수인계](docs/DEVELOPMENT_HANDOFF.md)를 참고하세요.
+`build-drive.ps1`는 현재 0.5.2 APK/해시를 재생성합니다. 재빌드하면 바이트·서명·해시가 달라질 수 있습니다. 이전 버전은 보존합니다.
 
-## 검증 상태
+## 구조와 이어가기
 
-2026-10-29 기존 빌드 기록 기준이며 이번 문서 수정에서 Android 시험을 재실행한 결과는 아닙니다.
+- `app/src/main`: 네이티브 차량 UI·상태·안전 규칙·실제 플랫폼 읽기 어댑터.
+- `simulator/`: 별도 웹 도로/식사/하차/합성 주변 시야 시뮬레이션.
+- `app/src/androidTest`, `app/src/testSupport`: 외부 시험 드라이버·시나리오. 제품 APK에 미포함.
+- [브랜치 역할](docs/BRANCH_GUIDE.md) · [이번 게시 기록](docs/UPDATE_0_5_2.md) · [안티그래피 인수인계](docs/ANTIGRAVITY_HANDOFF.md) · [이전 작업 기록](docs/UX_CONTINUATION_2026_10_30.md).
 
-- APK 빌드·테스트 컴파일 완료, lint 오류 **0개 / 경고 4개**.
-- JUnitCore **40개 통과**: 기존 도메인·세션 29개 + 모빌리티 규칙 11개.
-- APK v2 서명 및 16KB 페이지 정렬 검사 통과.
-- **Android 실기기에 APK 설치·화면 실행 및 식사 주문 흐름 촬영 완료**. AAOS·Pleos 런타임과 실차 연동은 미검증이며 전체 기능의 종단 시험 완료를 의미하지 않습니다. 로컬 에뮬레이터 부팅 문제는 남아 있습니다.
-- 다음 단계: 심사용 기기 UI·음성·전체 흐름 검증, 공식 권한에 따른 Pleos 어댑터, 실제 지도·ETA·주문·카메라 연동.
-
-기존 안전 인터록·브리지 소스와 테스트는 회귀 검증용으로 보존합니다. 이전 v0.1 APK·캡처·문서는 과거 기록이며 최신 앱의 화면이나 검증 결과로 사용하지 않습니다.
-
-## 관련 문서
-
-- [개발 인수인계](docs/DEVELOPMENT_HANDOFF.md)
-- [설치·시연·연동 제한](release/README.txt)
-- [빌드 검증 기록](release/BUILD-VERIFICATION.txt)
-- [캡처 출처·버전 안내](captures/README.md)
-- [공모전 공식 공고](https://appdevchallenge.auto-hmg.io/notice/c0a1a000-2026-4923-8000-000000000001)
+기존 0.2/0.3/0.4/0.5/0.5.1 APK와 캡처는 이력으로 보존합니다. 현재 화면과 검증은 위 0.5.2 자료를 기준으로 확인하세요.

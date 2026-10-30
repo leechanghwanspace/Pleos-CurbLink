@@ -1,0 +1,12 @@
+{
+  "source": "Chromium browser road simulator; software rendering, NOT APK or hardware GPU verification",
+  "result": "PASS",
+  "flows": [
+    "A2 unavailable -> A3",
+    "no suitable candidate",
+    "new trip resets exclusions",
+    "selected bay blocked -> continuous reroute -> fresh approval",
+    "840/480 recovery control visible"
+  ],
+  "pageErrors": []
+}

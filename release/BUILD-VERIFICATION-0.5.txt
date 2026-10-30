@@ -1,0 +1,49 @@
+2026-10-30 KST / 0.5 / local host checks; NO new native runtime evidence
+
+work-final-build.log
+> Task :app:lintAnalyzeDebugAndroidTest
+> Task :app:lintAnalyzeDebug
+> Task :app:lintAnalyzeDebugUnitTest
+> Task :app:lintReportDebug UP-TO-DATE
+> Task :app:lintDebug
+
+BUILD SUCCESSFUL in 57s
+72 actionable tasks: 14 executed, 58 up-to-date
+
+work-tests.log
+JUnit version 4.13.2
+.....................................................................
+Time: 0.238
+
+OK (69 tests)
+
+
+work-apk-boundary.log
+openjdk version "17.0.17" 2025-10-21 LTS
+OpenJDK Runtime Environment Microsoft-12574423 (build 17.0.17+10-LTS)
+OpenJDK 64-Bit Server VM Microsoft-12574423 (build 17.0.17+10-LTS, mixed mode, sharing)
+ANDROID_HOME=<Android SDK 경로>
+PASS: vehicle APK requires automotive; no simulation engine, renderer, scenarios or presenter classes.
+
+work-apk-signature.log
+Verifies
+Verified using v1 scheme (JAR signing): false
+Verified using v2 scheme (APK Signature Scheme v2): true
+Verified using v3 scheme (APK Signature Scheme v3): false
+Verified using v3.1 scheme (APK Signature Scheme v3.1): false
+Verified using v4 scheme (APK Signature Scheme v4): false
+Verified for SourceStamp: false
+Number of signers: 1
+
+work-apk-alignment.log
+25443372 kotlin/collections/collections.kotlin_builtins (OK - compressed)
+25444967 kotlin/coroutines/coroutines.kotlin_builtins (OK - compressed)
+25445194 kotlin/internal/internal.kotlin_builtins (OK - compressed)
+25445647 kotlin/kotlin.kotlin_builtins (OK - compressed)
+25450970 kotlin/ranges/ranges.kotlin_builtins (OK - compressed)
+25452330 kotlin/reflect/reflect.kotlin_builtins (OK - compressed)
+25453660 classes3.dex (OK)
+Verification succesful
+
+work-package-check.log
+PASS standalone offline; 4 images; video 18.4s; APK SHA256 matches 098d9655a72c3e1b938f022e287ce082630da1c59dc66714bb23d2f50928be28

@@ -1,0 +1,89 @@
+{
+  "dateKST": "2026-10-30",
+  "branch": "integration",
+  "baseCommit": "452fdf6",
+  "status": "uncommitted development snapshot; no release promotion",
+  "versionName": "0.5.1-arrival-studio",
+  "versionCode": 7,
+  "apk": {
+    "path": "app/build/outputs/apk/debug/app-debug.apk",
+    "sha256": "16e5efe3c73aa94104bc2cd2e1edd4b8f92c1cea25a132cec6e585265fa89730",
+    "bytes": 25870349,
+    "signing": "local debug; differs from remote 0.5.1 release"
+  },
+  "checks": {
+    "assembleDebug": "PASS",
+    "assembleDebugAndroidTest": "PASS",
+    "jvm": "80 tests PASS",
+    "lint": "0 errors, 3 existing dependency warnings",
+    "apkBoundary": "PASS",
+    "signatureV2": "PASS",
+    "zipalign16k": "PASS",
+    "webRuleFiles": "5 PASS",
+    "catalogParity": "3 destinations, 5 menus PASS",
+    "browserRecovery": "PASS, Chromium software rendering",
+    "externalInstrumentation": "18 flows, 94 assertions PASS",
+    "platformInstrumentation": "16 assertions PASS; CarService + NaviHelper connect/reconnect; source=VEHICLE, gear=P, routeReady=false",
+    "originalPreferences": "restored byte-for-byte before final app launch"
+  },
+  "device": {
+    "avd": "CurbLink_Pleos_2_1",
+    "serial": "emulator-5554",
+    "androidUser": 10,
+    "capture": "Android PixelCopy application window",
+    "width": 1682,
+    "height": 1210
+  },
+  "evidence": {
+    "uxScreens": "external TEST observations; not live lane/facility/order providers",
+    "platformScreen": "real CarService/NaviHelper service connection; no active matching route verified",
+    "images": [
+      {
+        "file": "platform-connected.png",
+        "sha256": "7fe23a5d0a78a64e0bb3bc2a667af7d139188354107decadbcd0836ebcc47d44",
+        "bytes": 158226
+      },
+      {
+        "file": "ux-bay-alternative.png",
+        "sha256": "ec684118cc5ef62ebef08db4b5b8fc6b741d58355f024c69ed1df30ae0504fb8",
+        "bytes": 177710
+      },
+      {
+        "file": "ux-bay-blocked.png",
+        "sha256": "001aa57ff5883f2c5316f1176f99b86ea5b50536ed41d4f278e7ab67523aa3ed",
+        "bytes": 175942
+      },
+      {
+        "file": "ux-bay-no-match.png",
+        "sha256": "964599848a0cf6a731b11d9dcd7514f655d17baa5749d894e1aac7077ff3a634",
+        "bytes": 176718
+      },
+      {
+        "file": "ux-lane-preparation.png",
+        "sha256": "35ccfc644ed259003edbd33d3c44749de5101bd197a1b7141bb1d781eccc2649",
+        "bytes": 172087
+      },
+      {
+        "file": "ux-retry-driving-restricted.png",
+        "sha256": "749ab4faa0cf7945d40669db778ff1eb307aab2d211790718afa63b92dcfacd4",
+        "bytes": 137111
+      }
+    ]
+  },
+  "notRun": [
+    "real STT/TTS recognition and playback",
+    "actual photo picker cancellation/share receiver transfer",
+    "native narrow window/font scaling/TalkBack/rotary/form factor",
+    "native video",
+    "real-time simulator to APK state bridge",
+    "physical vehicle validation"
+  ],
+  "logs": [
+    "work/ux-final-build.log",
+    "work/ux-junit.log",
+    "work/native-tests.txt",
+    "work/ux-platform-test.log",
+    "work/ux-browser/verification.json",
+    "work/ux-preferences-restored.log"
+  ]
+}

@@ -1,0 +1,90 @@
+{
+  "dateKST": "2026-10-30",
+  "versionName": "0.5-arrival-studio",
+  "versionCode": 6,
+  "branch": "codex/contest-experience",
+  "baseBranch": "origin/codex/simulation-app-redesign",
+  "source": "local working tree; not pushed",
+  "android": {
+    "assembleDebug": "PASS",
+    "assembleDebugAndroidTest": "PASS (compile only; not executed)",
+    "jvmTests": 69,
+    "jvmResult": "PASS",
+    "lintErrors": 0,
+    "lintWarnings": 3,
+    "lintWarningKinds": [
+      "existing GradleDependency updates"
+    ],
+    "apkBoundary": "PASS",
+    "signatureV2": "PASS",
+    "zipalign16k": "PASS",
+    "installedOrRunThisSession": false,
+    "pleosSimulationThisSession": false,
+    "nativeScreenshotsThisVersion": false,
+    "nativeVideoThisVersion": false
+  },
+  "webMockup": {
+    "source": "browser design mockup; NOT APK or Pleos execution",
+    "errors": [],
+    "layout": [
+      {
+        "viewport": "1682x1210",
+        "screens": 4,
+        "horizontalOverflow": false
+      },
+      {
+        "viewport": "1920x1080",
+        "screens": 4,
+        "horizontalOverflow": false
+      },
+      {
+        "viewport": "1280x720",
+        "screens": 4,
+        "horizontalOverflow": false
+      },
+      {
+        "viewport": "840x1212",
+        "screens": 4,
+        "horizontalOverflow": false
+      },
+      {
+        "viewport": "480x900",
+        "screens": 4,
+        "horizontalOverflow": false
+      }
+    ],
+    "flows": [
+      "signals",
+      "early exit",
+      "late exit reroute",
+      "explicit order",
+      "wide bay",
+      "approval invalidation",
+      "handoff preview"
+    ]
+  },
+  "standalonePackage": {
+    "offline": "PASS",
+    "embeddedImages": 4,
+    "webVideoSeconds": 18.4,
+    "embeddedApkHashMatches": "PASS"
+  },
+  "limitations": [
+    "3 fixture destinations; real POI search and route generation provider absent",
+    "live lane/signal/queue provider absent; app withholds unobserved recommendations",
+    "menus and facility data are fixtures; no real orders or payments",
+    "SVM camera adapter absent; user-selected images supported",
+    "passenger role does not override OEM UX restrictions",
+    "new native UI requires Pleos form factor, voice, accessibility and screenshot/video verification at home"
+  ],
+  "artifacts": {
+    "CurbLink-Drive-0.5-arrival-studio.apk": {
+      "bytes": 25831929,
+      "sha256": "098d9655a72c3e1b938f022e287ce082630da1c59dc66714bb23d2f50928be28"
+    },
+    "CurbLink-Drive-0.5-mockup.html": {
+      "bytes": 42229044,
+      "sha256": "ce160b1c4c2bda4e3582b3d8dca18409c50b87850b883ed61ee6a45ffcf39aef"
+    }
+  }
+}
