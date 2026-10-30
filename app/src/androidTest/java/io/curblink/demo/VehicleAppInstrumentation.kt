@@ -107,7 +107,7 @@ class VehicleAppInstrumentation:Instrumentation(){
             completed+="$id/$repeat"
         }
         // A restored order is verified in a separate real process restart after this run.
-        onMain{vehicle(VehicleGear.P);vm.reset();vm.page(1);vm.observeLocation("개발 검증용 위치",37.5,126.9);vm.startTrip();vehicle(VehicleGear.D);vm.observeTrip(TripObservation(900,3000,0,false));vm.voice("메뉴 추천");vm.voice("주문해 줘")}
+        onMain{vehicle(VehicleGear.P);vm.cancelOrder();vm.reset();vm.page(1);vm.observeLocation("개발 검증용 위치",37.5,126.9);vm.startTrip();vehicle(VehicleGear.D);vm.observeTrip(TripObservation(900,3000,0,false));vm.voice("메뉴 추천");vm.voice("주문해 줘")}
         capture("order-before-restart")
         finish(Activity.RESULT_OK,Bundle().apply{putString("result","PASS: ${completed.size} vehicle flows; $assertions assertions; external test driver only");putString("orderId",vm.state.value.order?.id);putString("flows",completed.joinToString(","))})
     }catch(error:Throwable){finish(Activity.RESULT_CANCELED,Bundle().apply{putString("failure",error.stackTraceToString());putString("completed",completed.joinToString(","))})}}
@@ -175,7 +175,7 @@ class VehicleAppInstrumentation:Instrumentation(){
         awaitConnected();SystemClock.sleep(1500)
         val restored=vm.state.value
         verify(restored.vehicleValid&&restored.navigationConnected,"Failed to reconnect after lifecycle restart")
-        onMain{vm.reset();vm.page(0)}
+        onMain{vm.cancelOrder();vm.reset();vm.page(0)}
         capture("pleos-reconnected")
         finish(Activity.RESULT_OK,Bundle().apply{
             putString("result","PASS: CarService + NaviHelper live connection, interactive store/bay/handoff actions, and stop/reconnect")

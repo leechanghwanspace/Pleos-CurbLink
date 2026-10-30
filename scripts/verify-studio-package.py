@@ -13,7 +13,7 @@ with sync_playwright() as p:
             external.append(route.request.url);route.abort()
         else:route.continue_()
     page.route('**/*',gate)
-    page.goto((release/'CurbLink-Drive-0.5-mockup.html').as_uri())
+    page.goto((release/'CurbLink-Drive-0.5.1-mockup.html').as_uri())
     assert page.locator('nav button').count()==4
     page.locator('details summary').click()
     assert page.locator('.gallery img').evaluate_all('(images)=>images.every(i=>i.complete&&i.naturalWidth===1682)')
@@ -23,7 +23,7 @@ with sync_playwright() as p:
     assert duration>12,duration
     with page.expect_download() as event:page.locator('footer a').click()
     download=event.value;target=root/'work/embedded-apk-check.apk';download.save_as(str(target))
-    expected=hashlib.sha256((release/'CurbLink-Drive-0.5-arrival-studio.apk').read_bytes()).hexdigest()
+    expected=hashlib.sha256((release/'CurbLink-Drive-0.5.1-arrival-studio.apk').read_bytes()).hexdigest()
     assert hashlib.sha256(target.read_bytes()).hexdigest()==expected
     assert not errors,errors
     assert not external,external

@@ -1,0 +1,103 @@
+{
+  "dateKST": "2026-10-30",
+  "versionName": "0.5.1-arrival-studio",
+  "versionCode": 7,
+  "branch": "integration",
+  "baseBranch": "origin/codex/simulation-app-redesign",
+  "source": "0.5.1 validated local update; see Git history for publication",
+  "android": {
+    "assembleDebug": "PASS",
+    "assembleDebugAndroidTest": "PASS (compile only; not executed)",
+    "jvmTests": 76,
+    "jvmResult": "PASS",
+    "lintErrors": 0,
+    "lintWarnings": 3,
+    "lintWarningKinds": [
+      "existing GradleDependency updates"
+    ],
+    "apkBoundary": "PASS",
+    "signatureV2": "PASS",
+    "zipalign16k": "PASS",
+    "installedOrRunThisSession": false,
+    "pleosSimulationThisSession": false,
+    "nativeScreenshotsThisVersion": false,
+    "nativeVideoThisVersion": false
+  },
+  "webMockup": {
+    "source": "browser design mockup; NOT APK or Pleos execution",
+    "errors": [],
+    "layout": [
+      {
+        "viewport": "1682x1210",
+        "screens": 4,
+        "horizontalOverflow": false
+      },
+      {
+        "viewport": "1920x1080",
+        "screens": 4,
+        "horizontalOverflow": false
+      },
+      {
+        "viewport": "1280x720",
+        "screens": 4,
+        "horizontalOverflow": false
+      },
+      {
+        "viewport": "840x1212",
+        "screens": 4,
+        "horizontalOverflow": false
+      },
+      {
+        "viewport": "480x900",
+        "screens": 4,
+        "horizontalOverflow": false
+      }
+    ],
+    "flows": [
+      "signals",
+      "early exit",
+      "late exit reroute",
+      "explicit order",
+      "active order reset protection",
+      "wide bay",
+      "approval invalidation",
+      "handoff preview"
+    ],
+    "catalogParity": "PASS: native 3 destinations and 5 menus"
+  },
+  "standalonePackage": {
+    "offline": "PASS",
+    "embeddedImages": 4,
+    "webVideoSeconds": 18.5,
+    "embeddedApkHashMatches": "PASS"
+  },
+  "limitations": [
+    "3 fixture destinations; real POI search and route generation provider absent",
+    "live lane/signal/queue provider absent; app withholds unobserved recommendations",
+    "menus and facility data are fixtures; no real orders or payments",
+    "SVM camera adapter absent; user-selected images supported",
+    "passenger role does not override OEM UX restrictions",
+    "new native UI requires Pleos form factor, voice, accessibility and screenshot/video verification at home"
+  ],
+  "artifacts": {
+    "CurbLink-Drive-0.5.1-arrival-studio.apk": {
+      "bytes": 25855913,
+      "sha256": "790cc32c8139e84150429ea286ae6f2569ee20ef2bb26df187cce36632edccd9"
+    },
+    "CurbLink-Drive-0.5.1-mockup.html": {
+      "bytes": 42469433,
+      "sha256": "403ed067f5747b39db51137e270102126be04eb56a55242cdfb864619fe777b3"
+    }
+  },
+  "regressions": [
+    "GPS refresh retains photos and revokes location approval",
+    "cancel photo picker retains photos and confirmation",
+    "old-trip or driving picker result rejected",
+    "attachments deduplicated and limited to 4",
+    "new trip clears attachments",
+    "process restore drops transient attachment URIs",
+    "active order blocks trip reset",
+    "bay selection preserves ETA distance elapsed order and obstacle",
+    "ineligible bay rejected"
+  ]
+}

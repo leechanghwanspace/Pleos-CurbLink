@@ -4,7 +4,7 @@
 >
 > [최종 main](https://github.com/leechanghwanspace/Pleos-CurbLink/tree/main) · **시뮬레이션** · [통합 개발](https://github.com/leechanghwanspace/Pleos-CurbLink/tree/integration) · [APK 단독](https://github.com/leechanghwanspace/Pleos-CurbLink/tree/apk)
 >
-> [브랜치 역할과 개발 규칙](docs/BRANCH_GUIDE.md)
+> [브랜치 역할과 개발 규칙](docs/BRANCH_GUIDE.md) · [0.5.1 안정성 수정](docs/UPDATE_0_5_1.md)
 
 이 브랜치에서는 아래 이미지의 **도로 주행·차선·차량 내부 주문·배리어프리 하차·주변 시야 인계**를 중심으로 시뮬레이션을 개발합니다. `release/studio/`의 대시보드 목업과 다른 실행 화면입니다. 네이티브 APK 실행 화면이 아닙니다.
 

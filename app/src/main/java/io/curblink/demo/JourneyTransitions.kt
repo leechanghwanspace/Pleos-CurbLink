@@ -18,13 +18,35 @@ object JourneyTransitions {
 
     fun newTrip(s: MobilityState, place: DemoPlace = s.destination): MobilityState = s.copy(
         tripId = java.util.UUID.randomUUID().toString(), destination = place, routeReady = false, remainingMeters = null,
-        locationVersion = s.locationVersion + 1, confirmedLocation = null, locationShared = false,
+        locationVersion = s.locationVersion + 1, confirmedLocation = null, locationShared = false, handoffPhotoUris = emptyList(),
         remaining = place.eta, total = place.eta, elapsed = 0, phase = DrivePhase.IDLE,
         paused = false, selectedMenu = null, mealStep = DiningStep.LOCATION, order = null,
         accessTrip = false, bay = null, spaceChecked = false, rampReady = false,
         staffAccepted = false, obstacle = false, accessApproved = false, exitProgress = 0,
         exitHeld = false, received = false
     )
+
+    fun reset(s: MobilityState): MobilityState = when {
+        !s.canEdit -> s.copy(note="P단 정차 상태에서 초기화해 주세요.")
+        s.order != null && !s.received -> s.copy(note="진행 중인 주문이 있습니다. 수령 또는 명시적 취소 후 새 여정을 시작해 주세요.")
+        else -> newTrip(s).copy(page=0,note="새 도착 준비를 시작합니다.")
+    }
+
+    fun attachPhotos(s: MobilityState, uris: List<String>, tripId: String?): MobilityState = when {
+        !s.canEdit || tripId != s.tripId -> s.copy(note="여정 또는 차량 상태가 바뀌었습니다. 정차 후 사진을 다시 선택해 주세요.")
+        uris.isEmpty() -> s.copy(note="사진 선택을 취소했습니다. 기존 첨부는 유지합니다.")
+        else -> s.copy(handoffPhotoUris=uris.distinct().take(4),locationShared=false,confirmedLocation=null,
+            note="주변 사진을 첨부했습니다. 현재 위치와 사진을 확인한 뒤 공유해 주세요.")
+    }
+
+    fun selectBay(s: MobilityState, bay: AccessBay): MobilityState {
+        if(!s.canEdit || !MobilityRules.assess(s.needs,listOf(bay)).first().eligible)
+            return s.copy(note="하차 조건에 맞는 지점을 정차 후 선택해 주세요.")
+        return s.copy(bay=bay,purpose=ArrivalPurpose.ACCESS,accessTrip=true,
+            locationVersion=s.locationVersion+1,locationShared=false,confirmedLocation=null,
+            spaceChecked=false,rampReady=false,staffAccepted=false,accessApproved=false,exitProgress=0,exitHeld=false,
+            note="${bay.name} 선택 · 입구 ${bay.walk}m. 정차 후 주변 공간과 지원을 확인해 주세요.")
+    }
 
     fun enforce(s: MobilityState): MobilityState {
         var next = s

@@ -1,0 +1,53 @@
+2026-10-30 KST / 0.5.1 / host checks only; NO new Pleos/native runtime evidence
+
+build
+> Task :app:lintAnalyzeDebugAndroidTest
+> Task :app:lintAnalyzeDebugUnitTest
+> Task :app:lintAnalyzeDebug
+> Task :app:lintReportDebug UP-TO-DATE
+> Task :app:lintDebug
+
+BUILD SUCCESSFUL in 46s
+72 actionable tasks: 12 executed, 60 up-to-date
+
+tests
+JUnit version 4.13.2
+............................................................................
+Time: 0.222
+
+OK (76 tests)
+
+
+boundary
+openjdk version "17.0.17" 2025-10-21 LTS
+OpenJDK Runtime Environment Microsoft-12574423 (build 17.0.17+10-LTS)
+OpenJDK 64-Bit Server VM Microsoft-12574423 (build 17.0.17+10-LTS, mixed mode, sharing)
+ANDROID_HOME=<Android SDK 경로>
+PASS: vehicle APK requires automotive; no simulation engine, renderer, scenarios or presenter classes.
+
+signature
+Verifies
+Verified using v1 scheme (JAR signing): false
+Verified using v2 scheme (APK Signature Scheme v2): true
+Verified using v3 scheme (APK Signature Scheme v3): false
+Verified using v3.1 scheme (APK Signature Scheme v3.1): false
+Verified using v4 scheme (APK Signature Scheme v4): false
+Verified for SourceStamp: false
+Number of signers: 1
+
+alignment
+25459760 kotlin/collections/collections.kotlin_builtins (OK - compressed)
+25461355 kotlin/coroutines/coroutines.kotlin_builtins (OK - compressed)
+25461582 kotlin/internal/internal.kotlin_builtins (OK - compressed)
+25462035 kotlin/kotlin.kotlin_builtins (OK - compressed)
+25467358 kotlin/ranges/ranges.kotlin_builtins (OK - compressed)
+25468718 kotlin/reflect/reflect.kotlin_builtins (OK - compressed)
+25470048 classes3.dex (OK)
+Verification succesful
+
+package
+PASS standalone offline; 4 images; video 18.5s; APK SHA256 matches 790cc32c8139e84150429ea286ae6f2569ee20ef2bb26df187cce36632edccd9
+
+studio
+PASS native/browser catalog parity: 3 destinations, 5 menus, seconds normalized
+[{"viewport": "1682x1210", "screens": 4, "horizontalOverflow": false}, {"viewport": "1920x1080", "screens": 4, "horizontalOverflow": false}, {"viewport": "1280x720", "screens": 4, "horizontalOverflow": false}, {"viewport": "840x1212", "screens": 4, "horizontalOverflow": false}, {"viewport": "480x900", "screens": 4, "horizontalOverflow": false}]

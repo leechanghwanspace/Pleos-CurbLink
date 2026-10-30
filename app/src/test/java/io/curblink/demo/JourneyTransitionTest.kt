@@ -58,11 +58,11 @@ class JourneyTransitionTest {
     @Test fun processRestoreKeepsOrderButDropsSafetyAndLocationApproval() {
         val menu = MobilityCatalog.menus.first()
         val s = approved().copy(order = DiningOrder(menu, 0, 120, 0), selectedMenu = menu,
-            mealStep = DiningStep.TRACK, elapsed = 180, locationShared = true)
+            mealStep = DiningStep.TRACK, elapsed = 180, locationShared = true, handoffPhotoUris=listOf("content://private-photo"))
         val restored = JourneyStore.restore(JourneyStore.encode(s), MobilityState())
         assertEquals(s.tripId, restored.tripId); assertEquals(s.order, restored.order)
         assertEquals(s.elapsed, restored.elapsed); assertEquals(DiningStep.TRACK, restored.mealStep)
-        assertTrue(restored.paused); assertFalse(restored.vehicleValid); assertFalse(restored.gpsReady)
+        assertTrue(restored.handoffPhotoUris.isEmpty()); assertTrue(restored.paused); assertFalse(restored.vehicleValid); assertFalse(restored.gpsReady)
         assertFalse(restored.accessApproved); assertFalse(restored.spaceChecked)
         assertFalse(restored.rampReady); assertFalse(restored.staffAccepted); assertFalse(restored.locationShared)
     }
@@ -99,5 +99,54 @@ class JourneyTransitionTest {
         assertEquals("CULTURE",JourneyStore.restore(encoded,MobilityState()).destination.id)
         val legacy=encoded.lines().filterNot{it.startsWith("appDestinationSelected=")}.joinToString("\n")
         assertTrue(JourneyStore.restore(legacy,MobilityState()).appDestinationSelected)
+    }
+    @Test fun gpsRefreshKeepsAttachmentsButRevokesLocationApproval() {
+        val state=MobilityState(gear=VehicleGear.P)
+        val attached=JourneyTransitions.attachPhotos(state,listOf("content://front","content://rear"),state.tripId)
+        val confirmed=attached.copy(locationShared=true,confirmedLocation=attached.locationKey)
+        val refreshed=JourneyTransitions.enforce(confirmed.copy(lat=37.51,lon=126.91,locationVersion=1))
+        assertEquals(attached.handoffPhotoUris,refreshed.handoffPhotoUris)
+        assertFalse(refreshed.canShareLocation)
+    }
+    @Test fun cancellingPhotoPickerPreservesAttachmentsAndConfirmation() {
+        val state=MobilityState(gear=VehicleGear.P,handoffPhotoUris=listOf("content://front"))
+        val confirmed=state.copy(locationShared=true,confirmedLocation=state.locationKey)
+        val result=JourneyTransitions.attachPhotos(confirmed,emptyList(),state.tripId)
+        assertEquals(state.handoffPhotoUris,result.handoffPhotoUris)
+        assertTrue(result.canShareLocation)
+    }
+    @Test fun photoResultsFromOldTripOrWhileDrivingAreRejected() {
+        val state=MobilityState(gear=VehicleGear.P,handoffPhotoUris=listOf("content://original"))
+        assertEquals(state.handoffPhotoUris,JourneyTransitions.attachPhotos(state,listOf("content://new"),"previous-trip").handoffPhotoUris)
+        assertEquals(state.handoffPhotoUris,JourneyTransitions.attachPhotos(state.copy(phase=DrivePhase.DRIVING),listOf("content://new"),state.tripId).handoffPhotoUris)
+    }
+    @Test fun replacingPhotosLimitsAndDeduplicatesAndRequiresReconfirmation() {
+        val state=MobilityState(gear=VehicleGear.P)
+        val confirmed=state.copy(locationShared=true,confirmedLocation=state.locationKey)
+        val result=JourneyTransitions.attachPhotos(confirmed,listOf("a","a","b","c","d","e"),state.tripId)
+        assertEquals(listOf("a","b","c","d"),result.handoffPhotoUris)
+        assertFalse(result.canShareLocation)
+        assertTrue(JourneyTransitions.newTrip(result).handoffPhotoUris.isEmpty())
+    }
+    @Test fun resetDoesNotSilentlyDiscardAnActiveOrder() {
+        val order=DiningOrder(MobilityCatalog.menus.first(),0,120,0)
+        val state=MobilityState(gear=VehicleGear.P,order=order,mealStep=DiningStep.TRACK)
+        val result=JourneyTransitions.reset(state)
+        assertEquals(state.tripId,result.tripId);assertEquals(order,result.order)
+        assertNull(JourneyTransitions.reset(state.copy(received=true)).order)
+    }
+    @Test fun selectingBayPreservesRemainingTimeOrderAndObstacle() {
+        val order=DiningOrder(MobilityCatalog.menus.first(),0,120,0)
+        val state=MobilityState(gear=VehicleGear.P,remaining=120,total=1080,elapsed=960,remainingMeters=120,
+            order=order,mealStep=DiningStep.TRACK,obstacle=true)
+        val result=JourneyTransitions.selectBay(state,MobilityCatalog.bays[1])
+        assertEquals(120,result.remaining);assertEquals(1080,result.total);assertEquals(960,result.elapsed)
+        assertEquals(state.remainingMeters,result.remainingMeters);assertEquals(order,result.order)
+        assertTrue(result.obstacle);assertFalse(result.accessApproved)
+    }
+    @Test fun unsupportedBayDoesNotChangeTheJourney() {
+        val state=MobilityState(gear=VehicleGear.P,remaining=120)
+        val result=JourneyTransitions.selectBay(state,MobilityCatalog.bays.first())
+        assertNull(result.bay);assertEquals(state.remaining,result.remaining)
     }
 }
