@@ -1,3 +1,16 @@
+CurbLink Drive 최신 프리뷰: 0.5.2-arrival-preview / versionCode 8
+
+APK: CurbLink-Drive-0.5.2-arrival-preview.apk; .sha256 및 VERIFICATION-0.5.2.json 참조.
+Android Automotive 필수 / minSdk29 / targetSdk35 / debug 서명.
+adb install -r -g CurbLink-Drive-0.5.2-arrival-preview.apk
+adb shell am start --user 10 -n io.curblink.demo/.MainActivity
+서명이 다르면 기존 앱/데이터를 자동 삭제하지 않습니다.
+최신 APK와 웹 시뮬레이션 원본 캡처: ../README.md 및 ../captures/README.md
+0.5.1 HTML은 이전 디자인 목업이며 현재 APK/도로 시뮬레이션 증거가 아닙니다.
+실제 음성/TTS, 사진 선택기/공유 수신, 공식 폼팩터, 접근성 및 실차는 추가 검증 대상입니다.
+
+이하 0.2 안내는 이전 배포물 보관 기록입니다. 현재 실행 절차로 사용하지 않습니다.
+
 CurbLink Drive 0.2 — 2026 HMG 차량용 앱 개발 공모전 프로토타입
 
 1. 설치

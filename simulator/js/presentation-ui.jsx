@@ -28,7 +28,7 @@ function LanePresentation({ mode, vehicleState, scenarioState, connectionState, 
   const complete = scenarioState.handoffCompleted && Object.values(vehicleState.doors).every(value => value === 'CLOSED');
   return <section aria-label="차선 추천 발표 대시보드" className="w-full max-w-[1840px] mx-auto mb-3 p-4 rounded-xl bg-slate-900 border border-teal-600">
     <div className="flex flex-wrap justify-between gap-3">
-      <div><strong>차선 추천 · 가상 교통 시뮬레이션</strong><p role="status">권장 {result.lane ? `${result.lane}차선` : '보류'} · {result.reason}</p></div>
+      <div><strong>{result.nextAction||'현재 경로를 확인하세요'}</strong><p>목적지까지 300m · 목표 {result.lane ? `${result.lane}차선` : '보류'}</p><p role="status">{result.reason} · 모의 교통 입력</p></div>
       <div>픽업: {complete ? '인계 완료' : scenarioState.orderReady ? '준비 완료' : '준비 중'} · 단계 {step}/3 · 모의 현재 {currentLane}차선</div>
     </div>
     <div className="grid grid-cols-4 gap-2 my-3" aria-label="차선별 상태">

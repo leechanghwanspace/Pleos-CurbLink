@@ -14,6 +14,7 @@ object JourneyStore {
         put("remaining", s.remaining); put("elapsed", s.elapsed); put("total", s.total)
         put("locationVersion", s.locationVersion); put("accessTrip", s.accessTrip)
         put("bay", s.bay?.id ?: ""); put("received", s.received)
+        put("unavailableBays", s.unavailableBayIds.sorted().joinToString(","))
         put("mealStep", s.mealStep.name); put("menu", s.selectedMenu?.id ?: "")
         s.order?.let { o -> put("orderId", o.id); put("orderMenu", o.menu.id); put("confirmedAt", o.confirmedAt); put("dispatchAt", o.dispatchAt); put("late", o.lateAtConfirmation) }
         return StringWriter().also { p.store(it, "CurbLink simulated journey v1") }.toString()
@@ -46,13 +47,15 @@ object JourneyStore {
             require(step != DiningStep.TRACK || order != null)
             require(step != DiningStep.REVIEW || selected != null)
             val access = flag("accessTrip")
+            val unavailable = p.getProperty("unavailableBays", "").split(",").filter { it.isNotEmpty() }.toSet()
+            require(unavailable.all { id -> MobilityCatalog.bays.any { it.id == id } })
             val bay = p.getProperty("bay")?.takeIf { it.isNotEmpty() }?.let { id -> MobilityCatalog.bays.first { it.id == id } }
             require(!access || bay != null)
             base.copy(tripId = trip, destination = destination, appDestinationSelected = p.getProperty("appDestinationSelected", "true").toBooleanStrict(), purpose = ArrivalPurpose.valueOf(required("purpose")),
                 phase = DrivePhase.valueOf(required("phase")), page = number("page").also { require(it in 0..4) },
                 remaining = remaining, elapsed = elapsed, total = total, paused = true, vehicleValid = false,
                 gpsReady = false, role = CabinRole.DRIVER, locationVersion = number("locationVersion") + 1,
-                accessTrip = access, bay = bay, selectedMenu = selected, mealStep = step, order = order,
+                accessTrip = access, bay = bay, unavailableBayIds = unavailable, selectedMenu = selected, mealStep = step, order = order,
                 source = VehicleSource.UNAVAILABLE, gear = VehicleGear.UNKNOWN, servicesReady = false, routeReady = false,
                 handoffPhotoUris = emptyList(), received = flag("received"), spaceChecked = false, rampReady = false, staffAccepted = false,
                 accessApproved = false, exitProgress = 0, locationShared = false, confirmedLocation = null,

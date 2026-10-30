@@ -4,6 +4,20 @@ import org.junit.Assert.*
 import org.junit.Test
 
 class JourneyTransitionTest {
+    @Test fun failuresRetainOrderAndPhotosButExpiredGpsCannotBeShared() {
+        val order=DiningOrder(MobilityCatalog.menus.first(),0,120,0)
+        val base=MobilityState(gear=VehicleGear.P,gpsReady=true,lat=37.5,lon=126.9,
+            order=order,selectedMenu=order.menu,handoffPhotoUris=listOf("content://front"))
+        val confirmed=base.copy(locationShared=true,confirmedLocation=base.locationKey)
+        val expired=JourneyTransitions.locationUnavailable(confirmed)
+        assertFalse(expired.gpsReady);assertFalse(expired.canShareLocation);assertNull(expired.lat)
+        for(result in listOf(expired,JourneyTransitions.voiceUnavailable(confirmed),JourneyTransitions.shareUnavailable(confirmed))){
+            assertEquals(order,result.order);assertEquals(base.handoffPhotoUris,result.handoffPhotoUris)
+            assertEquals(base.selectedMenu,result.selectedMenu)
+        }
+        assertTrue(JourneyTransitions.shareUnavailable(confirmed).canShareLocation)
+        assertFalse(JourneyTransitions.voiceUnavailable(confirmed.copy(gear=VehicleGear.D)).canEdit)
+    }
     private fun approved() = MobilityState(gear=VehicleGear.P, phase = DrivePhase.ARRIVED, accessTrip = true,
         bay = MobilityCatalog.bays[1], spaceChecked = true, rampReady = true, staffAccepted = true,
         accessApproved = true, exitProgress = 35)
@@ -143,6 +157,27 @@ class JourneyTransitionTest {
         assertEquals(120,result.remaining);assertEquals(1080,result.total);assertEquals(960,result.elapsed)
         assertEquals(state.remainingMeters,result.remainingMeters);assertEquals(order,result.order)
         assertTrue(result.obstacle);assertFalse(result.accessApproved)
+    }
+    @Test fun unavailableBayRevokesApprovalAndPreservesJourneyData() {
+        val order=DiningOrder(MobilityCatalog.menus.first(),0,120,0)
+        val base=approved().copy(bay=MobilityCatalog.bays[1],remaining=120,elapsed=960,total=1080,
+            remainingMeters=120,order=order,obstacle=true,handoffPhotoUris=listOf("content://front"))
+        val blocked=JourneyTransitions.unavailableBay(base,"A2")
+        assertNull(blocked.bay);assertFalse(blocked.accessApproved);assertFalse(blocked.spaceChecked)
+        assertTrue(blocked.obstacle);assertEquals(order,blocked.order);assertEquals(120,blocked.remaining)
+        assertEquals(base.handoffPhotoUris,blocked.handoffPhotoUris)
+        assertEquals("A3",blocked.bayAssessments.first{it.eligible}.bay.id)
+        val alternate=JourneyTransitions.selectBay(blocked,MobilityCatalog.bays[2])
+        assertEquals("A3",alternate.bay?.id);assertFalse(MobilityRules.canExit(alternate))
+        assertNull(JourneyTransitions.selectBay(blocked,MobilityCatalog.bays[1]).bay)
+    }
+    @Test fun unavailableBaysPersistWithinTripAndResetOnlyOnNewTrip() {
+        val base=MobilityState(gear=VehicleGear.P,needs=AccessPreferences(wide=true))
+        val noMatch=JourneyTransitions.unavailableBay(base,"A3")
+        assertTrue(noMatch.bayAssessments.none{it.eligible})
+        assertEquals(setOf("A3"),JourneyStore.restore(JourneyStore.encode(noMatch),MobilityState()).unavailableBayIds)
+        assertTrue(JourneyTransitions.newTrip(noMatch).unavailableBayIds.isEmpty())
+        assertTrue(JourneyTransitions.unavailableBay(base.copy(gear=VehicleGear.D),"A2").unavailableBayIds.isEmpty())
     }
     @Test fun unsupportedBayDoesNotChangeTheJourney() {
         val state=MobilityState(gear=VehicleGear.P,remaining=120)

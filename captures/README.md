@@ -1,5 +1,17 @@
 # 캡처 출처와 촬영 규격
 
+## 최신 0.5.2 — 현재 README에서 사용하는 화면
+
+- [실제 차량 앱 캡처·파일별 해시](android/0.5.2/verification.json): Pleos Connect 2.1.0에서 0.5.2-arrival-preview/versionCode8 실행. 앱 창 PixelCopy 원본 1682×1210 PNG이며 크롭·합성·리사이즈 없음.
+- 01은 실제 CarService/NaviHelper 서비스 연결, 02~06은 실제 차량 연결 아래 견본 매장·하차·인계 UI, 07~09는 별도 시험 APK의 TEST 관측을 통한 차선 준비·대안·후보 없음 검증이다. 실제 주문·시설·차선 제공자 연결 증거와 구분한다.
+- [웹 도로 시뮬레이션 캡처·해시](web/0.5.2/verification.json): `simulator/` 여섯 여정 완료, 1920×1200 뷰포트/배율1의 요소 영역 원본 PNG 9장. 소프트웨어 렌더링이며 APK/물리 GPU/실차 검증이 아니다.
+- 재현: `python scripts/verify-simulation.py`, 복구 화면은 `python scripts/verify-ux-simulator.py`. Playwright/Chromium 필요.
+- [최신 전체 갤러리](../README.md). 아래 이전 버전 자료는 이력으로 보존하며 현재 화면 증거로 사용하지 않는다.
+
+![최신 APK 차선 변경 준비](android/0.5.2/07-lane-preparation.png)
+
+![최신 웹 시뮬레이션 하차 안전 확인](web/0.5.2/08-access-safety.png)
+
 ## 차량 앱 프리뷰 — android/vehicle-app-preview/
 
 사용자 확정 방향에 따라 시뮬레이션을 분리한 `0.4-pleos-connected-preview` (versionCode 5)의 실제 Pleos 2.1.0 앱 창 캡처다. Android PixelCopy로 앱 창만 1682×1210px PNG 원본으로 수집했으며 크롭·합성·리사이즈를 하지 않았다. 전체 디스플레이의 Pleos 차량 홈 패널은 앱 창에 포함하지 않는다.

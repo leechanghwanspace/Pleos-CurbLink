@@ -37,12 +37,12 @@
   function rank(input) {
     const { currentLane = 2, phase = 'CRUISE', distance = 300,
       traffic = {}, valid = true } = input;
-    if (!valid) return { lane: null, reason: '정보 만료 · 추천 보류', costs: [] };
+    if (!valid) return { lane: null, reason: '정보 만료 · 차선 추천 보류', costs: [], nextAction: '차선 정보가 갱신될 때까지 현재 경로를 확인하세요', nextLane: null };
     const context=input.context||{};
     if(!Number.isInteger(currentLane)||currentLane<1||currentLane>4||!Number.isFinite(distance)||distance<0||Object.values(traffic).some(t=>['queue','signalWait','blockProbability','extraWait','uncertainty'].some(k=>t[k]!=null&&!Number.isFinite(t[k]))))return {lane:null,reason:'경로 정보 확인 필요',costs:[]};
     const exit=context.exitMeters!=null&&context.exitMeters<=1500, exitLane=context.exitLane??4;
     if(exit&&(!Number.isFinite(context.exitMeters)||context.exitMeters<0||!Number.isInteger(exitLane)||exitLane<1||exitLane>4))return {lane:null,reason:'경로 정보 확인 필요',costs:[]};
-    if(exit&&(context.laneChangeAllowed===false||Math.abs(currentLane-exitLane)*150>context.exitMeters))return {lane:currentLane,reason:'분기점 진입 보류 · 급한 변경 없이 다음 경로로 재탐색',costs:[],alternatives:[currentLane]};
+    if(exit&&(context.laneChangeAllowed===false||Math.abs(currentLane-exitLane)*150>context.exitMeters))return {lane:currentLane,reason:'분기점 진입 보류 · 재탐색 필요',costs:[],alternatives:[],nextAction:'현재 차선 유지 · 경로 제공자의 다음 안내 확인',nextLane:null};
     const profile = input.destinationMode ? destinationProfile(input.destinationMode, distance, input.zone) : null;
     const approaching = exit || (profile ? profile.approaching : phase === 'APPROACH');
     const goal = exit ? exitLane : approaching ? (profile?.targetLane ?? 4) : 3;
@@ -62,10 +62,15 @@
       return { ...lane, travel, queue, mixed, change, approach, uncertainty,
         cost: allowed && reachable ? travel + queue + mixed + change + approach + uncertainty : Infinity };
     });
-    const best = costs.reduce((a, b) => b.cost < a.cost ? b : a);
-    return { lane: Number.isFinite(best.cost) ? best.id : null, costs,
+    const cheapest = costs.reduce((a, b) => b.cost < a.cost ? b : a);
+    const best = costs.find(x=>!approaching&&x.id===currentLane&&Number.isFinite(x.cost)&&x.cost<=cheapest.cost+3)||cheapest;
+    const lane=Number.isFinite(best.cost)?best.id:null;
+    const waiting=id=>{const t=traffic[id]||{};return t.queue>0||t.signalWait>0||t.blockProbability*t.extraWait>0;};
+    const nextLane=lane!=null&&lane!==currentLane?currentLane+Math.sign(lane-currentLane):null;
+    return { lane, costs, nextLane,
+      nextAction:lane==null?'현재 경로 확인 · 안전한 곳에서 안내 재확인':lane===currentLane?`현재 ${currentLane}차선 유지`:`${nextLane}차선 방향 변경 준비 · 표지와 안전 간격 확인`,
       alternatives: context.simultaneousGreen && !approaching ? costs.filter(x=>[2,3].includes(x.id)&&Number.isFinite(x.cost)&&x.cost<=best.cost+6).map(x=>x.id) : Number.isFinite(best.cost) ? [best.id] : [],
-      reason: exit ? `${context.exitMeters}m 앞 분기점 · ${exitLane}차선까지 한 차선씩 미리 준비` : context.simultaneousGreen && !approaching ? '직좌 동시 신호 · 2·3차선 비교 후 원활한 차선 유지' : approaching ? '선택한 정차·주차 진입 차선으로 순차 접근' : phase === 'REJOIN' ? '인접 본선 합류 후 직진 차선 추천' : best.id === 3 ? '좌회전 대기 영향 회피 · 직진 전용 추천' : '변경 비용을 고려해 현재 차선 유지' };
+      reason: lane==null?'도달 가능한 차선 없음 · 추천 보류':exit ? `${context.exitMeters}m 앞 분기점 · ${exitLane}차선까지 한 차선씩 미리 준비` : approaching ? '선택한 정차·주차 진입 차선으로 순차 접근' : context.simultaneousGreen && [2,3].includes(lane) ? '직좌 동시 신호 · 2·3차선 비용 비교' : lane===3&&waiting(2)?'2차선 대기 영향 · 직진 전용 추천':lane!==4&&waiting(4)?'4차선 대기 영향 · 차선별 비용 비교':lane===currentLane?'변경 비용을 고려해 현재 차선 유지':'차선별 예상 비용 비교 · 직진 흐름 유지' };
   }
   function nextChange(current, target, gapSafe, legal = true) {
     if (target == null || current === target) return { lane: current, allowed: false, reason: '현재 차선 유지' };

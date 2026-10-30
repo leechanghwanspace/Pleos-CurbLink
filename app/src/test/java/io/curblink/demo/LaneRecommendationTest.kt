@@ -4,6 +4,16 @@ import org.junit.Assert.*
 import org.junit.Test
 
 class LaneRecommendationTest {
+    @Test fun adviceSeparatesTargetFromAdjacentPreparationAndUsesOnlyEvidence() {
+        val early=LaneRecommendation.rank(2,ArrivalPurpose.PICKUP,5000,emptyMap(),true,LaneContext(exitMeters=1200))
+        assertEquals(4,early.lane);assertEquals(3,early.nextLane);assertTrue(early.nextAction.contains("준비"))
+        val unknown=LaneRecommendation.rank(3,ArrivalPurpose.PICKUP,5000,emptyMap(),true)
+        assertFalse(unknown.reason.contains("대기 영향"))
+        val small=LaneRecommendation.rank(2,ArrivalPurpose.PICKUP,5000,mapOf(2 to LaneTraffic(queue=2)),true)
+        assertEquals(2,small.lane);assertNull(small.nextLane)
+        val expired=LaneRecommendation.rank(2,ArrivalPurpose.PICKUP,5000,emptyMap(),false)
+        assertNull(expired.lane);assertNull(expired.nextLane);assertTrue(expired.nextAction.contains("갱신"))
+    }
     @Test fun parkingReverseUsesWorldDistanceAndWithholdsMainRoadLanes() {
         val state=MobilityState(phase=DrivePhase.DRIVING,gear=VehicleGear.R,onMainRoad=false,remainingMeters=14)
         assertEquals(14,state.distance)

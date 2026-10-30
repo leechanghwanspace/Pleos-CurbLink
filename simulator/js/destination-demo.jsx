@@ -37,7 +37,7 @@ function DestinationDemo({ enabled, safe, onFrame, onActive, onStart }) {
  };
  React.useEffect(()=>{
   if(!state)return;
-  const selector=state.waiting?(['MEAL_SETUP','ACCESS_SETUP'].includes(state.phase)?'.meal-layout':state.phase==='ACCESS_WAIT'?'.access-cockpit':state.phase==='LOCATE'?'.location-console':'.handoff-console'):['COURIER','RETURN','MERGE'].includes(state.phase)?'.driver-scene':null;
+  const selector=state.waiting?(['ACCESS_WAIT','ACCESS_RESELECT'].includes(state.phase)?'.access-cockpit':['MEAL_SETUP','ACCESS_SETUP'].includes(state.phase)?'.meal-layout':state.phase==='LOCATE'?'.location-console':'.handoff-console'):['COURIER','RETURN','MERGE'].includes(state.phase)?'.driver-scene':null;
   if(selector){const timer=requestAnimationFrame(()=>document.querySelector(selector)?.scrollIntoView({behavior:window.matchMedia('(prefers-reduced-motion: reduce)').matches?'auto':'smooth',block:'center'}));return()=>cancelAnimationFrame(timer);}
  },[state?.waiting,state?.phase]);
  const preset=state&&MissionEngine.presets[state.kind];

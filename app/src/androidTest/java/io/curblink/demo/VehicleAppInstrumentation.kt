@@ -26,7 +26,17 @@ class VehicleAppInstrumentation:Instrumentation(){
     private fun onMain(action:()->Unit){var failure:Throwable?=null;runOnMainSync{try{action()}catch(error:Throwable){failure=error}};failure?.let{throw it};waitForIdleSync()}
     private fun vehicle(gear:VehicleGear)=vm.observeVehicle(VehicleObservation(gear,if(gear==VehicleGear.P)0.0 else 18.0,SystemClock.elapsedRealtime(),VehicleSource.TEST,gear!=VehicleGear.P))
     private fun capture(name:String){
-        SystemClock.sleep(180)
+        // Idle main queue alone does not imply Compose has submitted its new frame.
+        val rendered=CountDownLatch(1)
+        runOnMainSync {
+            val view=activity.window.decorView
+            view.postOnAnimation(object:Runnable {
+                var frames=0
+                override fun run(){if(++frames>=3)rendered.countDown()else view.postOnAnimation(this)}
+            })
+        }
+        check(rendered.await(10,TimeUnit.SECONDS)){"Timed out waiting for rendered capture: $name"}
+        SystemClock.sleep(250)
         val bitmap=Bitmap.createBitmap(activity.window.decorView.width,activity.window.decorView.height,Bitmap.Config.ARGB_8888)
         val latch=CountDownLatch(1)
         var result=-1
@@ -106,6 +116,7 @@ class VehicleAppInstrumentation:Instrumentation(){
             onMain{vehicle(VehicleGear.P)}
             completed+="$id/$repeat"
         }
+        testUxRecovery()
         // A restored order is verified in a separate real process restart after this run.
         onMain{vehicle(VehicleGear.P);vm.cancelOrder();vm.reset();vm.page(1);vm.observeLocation("개발 검증용 위치",37.5,126.9);vm.startTrip();vehicle(VehicleGear.D);vm.observeTrip(TripObservation(900,3000,0,false));vm.voice("메뉴 추천");vm.voice("주문해 줘")}
         capture("order-before-restart")
@@ -119,6 +130,39 @@ class VehicleAppInstrumentation:Instrumentation(){
             SystemClock.sleep(100)
         }
         error("Platform connection timed out: vehicle=${vm.state.value.vehicleValid}, navi=${vm.state.value.navigationConnected}, note=${vm.state.value.note}")
+    }
+    private fun testUxRecovery(){
+        onMain{
+            vehicle(VehicleGear.P);vm.cancelOrder();vm.reset();vm.page(0)
+            vehicle(VehicleGear.D);vm.observeTrip(TripObservation(900,5000,0,false))
+            vm.observeLanes(emptyMap(),LaneContext(exitMeters=1200),true)
+        }
+        verify(vm.state.value.laneAdvice.lane==4&&vm.state.value.laneAdvice.nextLane==3,"Target and adjacent lane preparation conflated")
+        capture("ux-lane-preparation")
+        onMain{
+            vehicle(VehicleGear.P);vm.needs(AccessPreferences());vm.page(2);vm.chooseBay(MobilityCatalog.bays[1]);vm.markArrivedForCheck()
+            vm.check("space",true);vm.check("ramp",true);vm.check("staff",true);vm.approveExit();vm.unavailableBay("A2")
+        }
+        verify(vm.state.value.bay==null&&!vm.state.value.accessApproved,"Unavailable bay reused approval")
+        verify(vm.state.value.bayAssessments.first{it.eligible}.bay.id=="A3","Suitable alternative missing")
+        capture("ux-bay-blocked")
+        onMain{vehicle(VehicleGear.P);vm.chooseBay(MobilityCatalog.bays[2])}
+        verify(!MobilityRules.canExit(vm.state.value),"Alternative skipped new space/support checks")
+        capture("ux-bay-alternative")
+        onMain{vehicle(VehicleGear.P);vm.unavailableBay("A3")}
+        verify(vm.state.value.bayAssessments.none{it.eligible},"No-match state relaxed support needs")
+        capture("ux-bay-no-match")
+        onMain{
+            vehicle(VehicleGear.P);vm.page(3);vm.observeLocation("개발 검증용 위치",37.5,126.9)
+            vm.attachPhotos(listOf("content://test/front"),vm.state.value.tripId);vm.shareLocation()
+            vm.voiceUnavailable();vm.shareUnavailable()
+        }
+        verify(vm.state.value.handoffPhotoUris.size==1&&vm.state.value.canShareLocation,"Retry lost attachment or confirmation")
+        onMain{vehicle(VehicleGear.D);vm.observeTrip(TripObservation(900,5000,0,false));vm.shareUnavailable()}
+        verify(!vm.state.value.canShareLocation,"Failure bypassed driving restriction")
+        capture("ux-retry-driving-restricted")
+        onMain{vehicle(VehicleGear.P);vm.cancelOrder();vm.reset()}
+        verify(vm.state.value.unavailableBayIds.isEmpty(),"Unavailable bays leaked to new trip")
     }
     private fun testPlatformConnection(){
         targetContext.getSharedPreferences("curblink_drive",Context.MODE_PRIVATE).edit().clear().commit()

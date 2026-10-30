@@ -1,5 +1,27 @@
 const assert=require('node:assert/strict');global.AccessPlanner=require('./access-planner.js');global.MissionEngine=require('./mission-engine.js');const A=AccessPlanner,M=MissionEngine;
 const needs=A.initial().needs;
+{
+ let s={...M.initial('ACCESS'),phase:'ACCESS_SETUP',stopped:true,waiting:true,gear:'P',access:A.initial()};
+ s=A.apply(s,{type:'GO'},true);
+ for(let i=0;i<10000&&!s.waiting;i++)s=M.advance(s,.1);
+ s=A.apply(s,{type:'sideObstacle',value:true},true);
+ const before=s;
+ s=A.apply(s,{type:'UNAVAILABLE',id:'A2'},true);
+ assert.equal(s.phase,'ACCESS_RESELECT');assert.equal(s.access.zone,null);assert.equal(s.access.approved,false);
+ assert.equal(s.access.sideObstacle,true);assert.equal(s.elapsed,before.elapsed);
+ assert.equal(A.evaluate(s.access.needs,A.zones,s.access.unavailableIds).find(z=>z.eligible).id,'A3');
+ const pose=s.pose;
+ s=A.apply(s,{type:'GO'},true);
+ assert.equal(s.access.zone.id,'A3');assert.deepEqual(s.pose,pose);assert.equal(s.access.spaceConfirmed,false);
+ for(let i=0;i<10000&&!s.waiting;i++)s=M.advance(s,.1);
+ assert.equal(s.phase,'ACCESS_WAIT');assert.ok(Math.abs(s.pose.z-648)<.2);
+ assert.equal(A.canExit(s,true),false);
+ s=A.apply(s,{type:'UNAVAILABLE',id:'A3'},true);
+ assert.ok(A.evaluate(s.access.needs,A.zones,s.access.unavailableIds).every(z=>!z.eligible));
+ assert.equal(A.apply(s,{type:'GO'},true),s);
+ assert.deepEqual(A.initial().unavailableIds,[]);
+ assert.equal(A.apply(before,{type:'UNAVAILABLE',id:'A2'},false),before);
+}
 assert.equal(A.evaluate(needs).find(z=>z.eligible).id,'A2');
 assert.equal(A.evaluate({...needs,wide:true}).find(z=>z.eligible).id,'A3');
 assert.equal(A.evaluate({...needs,gentle:true}).find(z=>z.eligible).id,'A3');

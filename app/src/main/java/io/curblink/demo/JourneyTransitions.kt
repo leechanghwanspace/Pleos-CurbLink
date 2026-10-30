@@ -3,6 +3,16 @@ package io.curblink.demo
 enum class MealVoiceIntent { CANCEL, QUERY, RECOMMEND, CONFIRM, HOME, UNKNOWN }
 
 object JourneyTransitions {
+    fun locationUnavailable(s: MobilityState) = s.copy(gpsReady=false,lat=null,lon=null,
+        locationShared=false,confirmedLocation=null,
+        note="현재 위치를 읽지 못했습니다. 위치 권한과 GPS 수신을 확인하고 안전한 곳에 정차 후 현재 위치를 다시 확인해 주세요.")
+
+    fun voiceUnavailable(s: MobilityState) = s.copy(
+        note="음성을 인식하지 못했습니다. 기존 선택은 유지합니다. 음성 명령을 다시 시도하거나 안전한 곳에 정차 후 확인해 주세요.")
+
+    fun shareUnavailable(s: MobilityState) = s.copy(
+        note="공유창을 열지 못했습니다. 사진과 위치 카드는 유지합니다. 정차 후 공유 앱을 확인하고 다시 시도해 주세요.")
+
     fun voiceIntent(text: String): MealVoiceIntent {
         val words = text.trim().replace(Regex("[\\s.!?]+"), "")
         // A positive substring is never enough to authorize an order.
@@ -21,7 +31,7 @@ object JourneyTransitions {
         locationVersion = s.locationVersion + 1, confirmedLocation = null, locationShared = false, handoffPhotoUris = emptyList(),
         remaining = place.eta, total = place.eta, elapsed = 0, phase = DrivePhase.IDLE,
         paused = false, selectedMenu = null, mealStep = DiningStep.LOCATION, order = null,
-        accessTrip = false, bay = null, spaceChecked = false, rampReady = false,
+        accessTrip = false, bay = null, unavailableBayIds = emptySet(), spaceChecked = false, rampReady = false,
         staffAccepted = false, obstacle = false, accessApproved = false, exitProgress = 0,
         exitHeld = false, received = false
     )
@@ -40,12 +50,24 @@ object JourneyTransitions {
     }
 
     fun selectBay(s: MobilityState, bay: AccessBay): MobilityState {
-        if(!s.canEdit || !MobilityRules.assess(s.needs,listOf(bay)).first().eligible)
+        if(!s.canEdit || !MobilityRules.assess(s.needs,listOf(bay),s.unavailableBayIds).first().eligible)
             return s.copy(note="하차 조건에 맞는 지점을 정차 후 선택해 주세요.")
         return s.copy(bay=bay,purpose=ArrivalPurpose.ACCESS,accessTrip=true,
             locationVersion=s.locationVersion+1,locationShared=false,confirmedLocation=null,
             spaceChecked=false,rampReady=false,staffAccepted=false,accessApproved=false,exitProgress=0,exitHeld=false,
             note="${bay.name} 선택 · 입구 ${bay.walk}m. 정차 후 주변 공간과 지원을 확인해 주세요.")
+    }
+
+    fun unavailableBay(s: MobilityState, id: String): MobilityState {
+        if (!s.canEdit || MobilityCatalog.bays.none { it.id == id })
+            return s.copy(note="안전한 곳에 P단 정차 후 이용 불가 지점을 확인해 주세요.")
+        val next = s.copy(unavailableBayIds=s.unavailableBayIds+id)
+        val revoked = if (s.bay?.id == id) next.copy(bay=null,accessTrip=false,accessApproved=false,
+            spaceChecked=false,rampReady=false,staffAccepted=false,exitProgress=0,exitHeld=true,
+            locationVersion=s.locationVersion+1,locationShared=false,confirmedLocation=null) else next
+        val alternative = revoked.bayAssessments.firstOrNull { it.eligible }
+        return revoked.copy(note=alternative?.let { "사용자 확인 · 이번 여정 이용 불가. 대안 ${it.bay.name} · 입구 ${it.bay.walk}m. 새 지점 선택 후 안전 조건을 다시 확인해 주세요." }
+            ?: "조건에 맞는 하차 지점이 없습니다. 지원 조건을 확인하거나 현장 도움을 요청해 주세요.")
     }
 
     fun enforce(s: MobilityState): MobilityState {

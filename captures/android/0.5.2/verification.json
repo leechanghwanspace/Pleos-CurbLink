@@ -1,0 +1,85 @@
+{
+  "dateKST": "2026-10-31",
+  "versionName": "0.5.2-arrival-preview",
+  "versionCode": 8,
+  "apkSha256": "51fc4d559be2618899be5913cbaa85805d8d8dcfcbc0e3ae877583306f7390c7",
+  "source": "Pleos Connect 2.1.0 emulator, Android PixelCopy app window; no crop/resizing/compositing",
+  "externalTest": {
+    "flows": 18,
+    "assertions": 94,
+    "result": "PASS"
+  },
+  "platformTest": {
+    "assertions": 16,
+    "result": "PASS",
+    "vehicleSource": "VEHICLE",
+    "gear": "P",
+    "routeReady": false
+  },
+  "preferencesRestored": "byte-for-byte before final launch",
+  "images": [
+    {
+      "file": "01-platform-connected.png",
+      "sha256": "7fe23a5d0a78a64e0bb3bc2a667af7d139188354107decadbcd0836ebcc47d44",
+      "width": 1682,
+      "height": 1210,
+      "source": "real CarService/NaviHelper IPC; no matching active route"
+    },
+    {
+      "file": "02-dining-stores.png",
+      "sha256": "45688568664ee5f02d1b78c7ed269f56b258e3d07d463e7e26c7f8073ed3de20",
+      "width": 1682,
+      "height": 1210,
+      "source": "real vehicle connection; mock store catalog"
+    },
+    {
+      "file": "03-dining-review.png",
+      "sha256": "2bb7dd4762ed12e37cedf6928e7b3ef32b3a9933c12905c99869a3c4e4830019",
+      "width": 1682,
+      "height": 1210,
+      "source": "real vehicle connection; mock menu/order review"
+    },
+    {
+      "file": "04-access-comparison.png",
+      "sha256": "c0cac402e551ea02d4a21754d61b8391979c10a51f2c78c7c0c3e917e9d8b5f8",
+      "width": 1682,
+      "height": 1210,
+      "source": "real vehicle connection; mock facility comparison"
+    },
+    {
+      "file": "05-access-completed.png",
+      "sha256": "89996ebed3ec84caac53fa863f96749bb6a254042e5f249fd1730d76b4da899b",
+      "width": 1682,
+      "height": 1210,
+      "source": "real vehicle connection; explicit user support confirmations"
+    },
+    {
+      "file": "06-handoff.png",
+      "sha256": "ac7794eb803c1e43f5aa84ba9ec609fbba7ce7ce277ee66375282915d70e0f3d",
+      "width": 1682,
+      "height": 1210,
+      "source": "real vehicle connection; emulator GPS; sharing not sent"
+    },
+    {
+      "file": "07-lane-preparation.png",
+      "sha256": "35ccfc644ed259003edbd33d3c44749de5101bd197a1b7141bb1d781eccc2649",
+      "width": 1682,
+      "height": 1210,
+      "source": "external TEST lane/route observations"
+    },
+    {
+      "file": "08-bay-alternative.png",
+      "sha256": "ec684118cc5ef62ebef08db4b5b8fc6b741d58355f024c69ed1df30ae0504fb8",
+      "width": 1682,
+      "height": 1210,
+      "source": "external TEST observations; new safety checks required"
+    },
+    {
+      "file": "09-bay-no-match.png",
+      "sha256": "964599848a0cf6a731b11d9dcd7514f655d17baa5749d894e1aac7077ff3a634",
+      "width": 1682,
+      "height": 1210,
+      "source": "external TEST observations; A2/A3 unavailable"
+    }
+  ]
+}

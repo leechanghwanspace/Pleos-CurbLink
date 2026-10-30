@@ -12,7 +12,7 @@ $env:JAVA_OPTS = '-Djava.net.preferIPv4Stack=true -Xmx2048m -Dfile.encoding=UTF-
 if ($LASTEXITCODE -ne 0) { throw 'Android build or lint failed.' }
 & (Join-Path $projectRoot 'run-domain-tests.ps1')
 if ($LASTEXITCODE -ne 0) { throw 'Domain tests failed.' }
-$apk = Join-Path $projectRoot 'release/CurbLink-Drive-0.5.1-arrival-studio.apk'
+$apk = Join-Path $projectRoot 'release/CurbLink-Drive-0.5.2-arrival-preview.apk'
 Copy-Item -LiteralPath 'app/build/outputs/apk/debug/app-debug.apk' -Destination $apk -Force
-((Get-FileHash -LiteralPath $apk -Algorithm SHA256).Hash + '  CurbLink-Drive-0.5.1-arrival-studio.apk') | Set-Content -Encoding ascii 'release/CurbLink-Drive-0.5.1-arrival-studio.apk.sha256'
+((Get-FileHash -LiteralPath $apk -Algorithm SHA256).Hash + '  CurbLink-Drive-0.5.2-arrival-preview.apk') | Set-Content -Encoding ascii 'release/CurbLink-Drive-0.5.2-arrival-preview.apk.sha256'
 Write-Output $apk

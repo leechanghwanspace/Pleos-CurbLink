@@ -45,6 +45,7 @@ data class MobilityState(
     val mealStep: DiningStep = DiningStep.LOCATION, val selectedMenu: DiningMenu? = null, val order: DiningOrder? = null,
     val gpsReady: Boolean = false, val locationLabel: String = "모의 GPS · 중앙로 출발", val lat: Double? = null, val lon: Double? = null,
     val needs: AccessPreferences = AccessPreferences(), val bay: AccessBay? = null, val accessTrip: Boolean = false,
+    val unavailableBayIds: Set<String> = emptySet(),
     val spaceChecked: Boolean = false, val rampReady: Boolean = false, val staffAccepted: Boolean = false,
     val obstacle: Boolean = false, val accessApproved: Boolean = false, val exitProgress: Int = 0,
     val handoffPhotoUris: List<String> = emptyList(),
@@ -56,6 +57,7 @@ data class MobilityState(
     val canEdit get() = vehicleValid && !moving && !uxRestricted && gear == VehicleGear.P
     val locationKey get() = "$tripId:${destination.id}:$locationVersion"
     val canShareLocation get() = canEdit && locationShared && confirmedLocation == locationKey
+    val bayAssessments get() = MobilityRules.assess(needs, MobilityCatalog.bays, unavailableBayIds)
     val laneAdvice get() = if (!moving) LaneAdvice(null, "정차 지점 · 주변을 확인하세요", emptyList())
         else if (!onMainRoad) LaneAdvice(null, "본선 차선 안내 종료 · 현재 접근 안내를 따르세요", emptyList())
         else LaneRecommendation.rank(
@@ -88,9 +90,10 @@ object MobilityCatalog {
         AccessBay("A3", "북측 넓은 베이 A-3", 55, 1.2, 2.4, true, false, 0, true))
 }
 object MobilityRules {
-    fun assess(needs: AccessPreferences, bays: List<AccessBay> = MobilityCatalog.bays): List<BayAssessment> = bays.map { b ->
+    fun assess(needs: AccessPreferences, bays: List<AccessBay> = MobilityCatalog.bays, unavailableIds: Set<String> = emptySet()): List<BayAssessment> = bays.map { b ->
         val reasons = buildList {
             if (!b.available) add("이용 불가·미확인")
+            if (b.id in unavailableIds) add("사용자 확인 · 이번 여정 이용 불가")
             if (!b.stepFree) add("계단·단차 있음")
             if (b.crossing) add("차도 횡단 필요")
             if (b.curb > 2) add("연석 높이 초과")
@@ -108,7 +111,7 @@ object MobilityRules {
         return DiningOrder(menu, s.elapsed, s.elapsed + (s.remaining - menu.lead).coerceAtLeast(0), (menu.lead - s.remaining).coerceAtLeast(0))
     }
     fun exitConditions(s: MobilityState): Boolean = s.canEdit && s.phase == DrivePhase.ARRIVED && s.accessTrip && !s.obstacle &&
-        s.bay?.let { b -> assess(s.needs, listOf(b)).first().eligible } == true && s.spaceChecked &&
+        s.bay?.let { b -> assess(s.needs, listOf(b), s.unavailableBayIds).first().eligible } == true && s.spaceChecked &&
         (!s.needs.wheelchair || s.rampReady) && (!s.needs.staff || s.staffAccepted)
     fun canExit(s: MobilityState): Boolean = exitConditions(s) && !s.accessApproved && s.exitProgress < 100
     fun lane(s: MobilityState): Pair<Int, String> = s.laneAdvice.let { (it.lane ?: 0) to it.reason }

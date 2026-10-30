@@ -1,5 +1,10 @@
 const assert = require('node:assert/strict');
 const { rank, nextChange } = require('./lane-engine.js');
+const early=rank({distance:5000,context:{exitMeters:1200}});
+assert.equal(early.lane,4);assert.equal(early.nextLane,3);assert.match(early.nextAction,/준비/);
+assert.doesNotMatch(rank({currentLane:3,distance:5000}).reason,/대기 영향/);
+assert.equal(rank({distance:5000,traffic:{2:{queue:2}}}).lane,2);
+assert.match(rank({valid:false}).nextAction,/갱신/);
 assert.equal(rank({}).lane, 2);
 const blocked = rank({traffic:{2:{queue:1,blockProbability:.7,extraWait:20},3:{queue:1}}});
 assert.equal(blocked.lane, 3);

@@ -1,0 +1,51 @@
+{
+  "dateKST": "2026-10-31",
+  "versionName": "0.5.2-arrival-preview",
+  "versionCode": 8,
+  "publication": "user-requested preview on main; common source on integration/apk/simulation",
+  "startingCommit": "452fdf6",
+  "apk": {
+    "file": "CurbLink-Drive-0.5.2-arrival-preview.apk",
+    "sha256": "51fc4d559be2618899be5913cbaa85805d8d8dcfcbc0e3ae877583306f7390c7",
+    "bytes": 25504073,
+    "signature": "local debug, v2 verified",
+    "zipalign16k": "PASS"
+  },
+  "checks": {
+    "assembleDebug": "PASS",
+    "assembleDebugAndroidTest": "PASS",
+    "jvmTests": 80,
+    "lintErrors": 0,
+    "lintWarnings": 3,
+    "lintWarningKinds": [
+      "existing dependency updates"
+    ],
+    "apkBoundary": "PASS",
+    "webRuleFiles": 5,
+    "catalogParity": "3 destinations / 5 menus PASS",
+    "externalInstrumentation": {
+      "flows": 18,
+      "assertions": 94,
+      "result": "PASS"
+    },
+    "platformInstrumentation": {
+      "assertions": 16,
+      "result": "PASS",
+      "vehicleSource": "VEHICLE",
+      "gear": "P",
+      "routeReady": false
+    },
+    "preferencesRestored": "PASS"
+  },
+  "nativeEvidence": "captures/android/0.5.2/verification.json",
+  "webEvidence": "captures/web/0.5.2/verification.json",
+  "recoveryEvidence": "captures/web/ux-followup-2026-10-30/verification.json",
+  "limitations": [
+    "no matching active destination route verified in this run",
+    "no live lane/traffic/order/payment/facility/SVM/control providers",
+    "no real-time simulator/APK synchronization",
+    "browser software rendering; not physical GPU or real vehicle certification",
+    "actual OS STT/TTS, photo picker/share delivery, narrow native window, TalkBack/rotary and official form factor pending"
+  ],
+  "artifactPolicy": "older APKs/HTML/checksums preserved; no forced updates or app data deletion"
+}
