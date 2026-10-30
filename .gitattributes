@@ -1,0 +1,3 @@
+
+# Preserve published single-file artifact bytes and their SHA-256 across platforms.
+release/*-mockup.html -text

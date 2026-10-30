@@ -23,9 +23,10 @@ $needsWeb = $Mode -in @('Simulation','Integrated')
 $apk = Join-Path $projectRoot 'release/CurbLink-Drive-0.5-arrival-studio.apk'
 $python = Get-Command python -ErrorAction SilentlyContinue
 $adb = Get-Command adb -ErrorAction SilentlyContinue
+$adbExe = if ($adb) { $adb.Source } else { $null }
 if (-not $adb -and $env:ANDROID_HOME) {
     $adbPath = Join-Path $env:ANDROID_HOME 'platform-tools/adb.exe'
-    if (Test-Path -LiteralPath $adbPath) { $adb = Get-Item -LiteralPath $adbPath }
+    if (Test-Path -LiteralPath $adbPath) { $adb = Get-Item -LiteralPath $adbPath; $adbExe = $adb.FullName }
 }
 $webUrl = "http://127.0.0.1:$Port/simulator/"
 [pscustomobject]@{
@@ -42,13 +43,13 @@ if ($needsApk) {
     if (-not (Test-Path -LiteralPath $apk)) { throw 'Build the APK with scripts/build-drive.ps1 first.' }
     if (-not $adb) { throw 'Set ANDROID_HOME or add adb to PATH. Start Pleos separately.' }
     if (-not $Serial) { throw 'Pass -Serial from adb devices. No device is selected automatically.' }
-    & $adb.Source -s $Serial get-state
+    & $adbExe -s $Serial get-state
     if ($LASTEXITCODE -ne 0) { throw 'The selected device is not connected.' }
-    $badging = & $adb.Source -s $Serial shell pm list features
-    if ($LASTEXITCODE -ne 0 -or $badging -notmatch 'android.hardware.type.automotive') { throw 'The selected device must provide Android Automotive.' }
-    & $adb.Source -s $Serial install -r $apk
+    $badging = & $adbExe -s $Serial shell pm list features
+    if ($LASTEXITCODE -ne 0 -or ($badging -join "`n") -notmatch 'android.hardware.type.automotive') { throw 'The selected device must provide Android Automotive.' }
+    & $adbExe -s $Serial install -r $apk
     if ($LASTEXITCODE -ne 0) { throw 'APK installation failed. Existing data was not deleted.' }
-    & $adb.Source -s $Serial shell am start --user $AndroidUser -n io.curblink.demo/.MainActivity
+    & $adbExe -s $Serial shell am start --user $AndroidUser -n io.curblink.demo/.MainActivity
     if ($LASTEXITCODE -ne 0) { throw 'Could not start APK. Check the Android user ID.' }
 }
 if ($needsWeb) {
