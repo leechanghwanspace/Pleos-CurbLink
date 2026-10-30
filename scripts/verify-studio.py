@@ -1,7 +1,8 @@
-import json, os
+import json, os, subprocess, sys
 from pathlib import Path
 from playwright.sync_api import sync_playwright
 root=Path(__file__).resolve().parents[1];out=root/'release/studio';errors=[];results=[]
+subprocess.run([sys.executable,str(root/'scripts/export-studio-catalog.py'),'--check'],check=True)
 with sync_playwright() as p:
     browser=p.chromium.launch(headless=True,args=['--disable-gpu'])
     context=browser.new_context(viewport={'width':1682,'height':1210},device_scale_factor=1,record_video_dir=str(root/'work/studio-recordings'),record_video_size={'width':1682,'height':1210},reduced_motion='reduce')
@@ -16,6 +17,7 @@ with sync_playwright() as p:
     page.locator('[data-scenario="3"]').click();page.wait_for_timeout(1100);assert '재탐색' in page.locator('.lane-info').inner_text()
     page.locator('[data-scenario="0"]').click()
     page.locator('nav [data-page]').nth(1).click();page.locator('#gps').click();page.locator('[data-menu="0"]').click();page.locator('#confirm').click();page.wait_for_timeout(1800);assert '도착을 함께' in page.locator('#workspace').inner_text()
+    page.locator('#reset').click();assert '도착을 함께' in page.locator('#workspace').inner_text();assert '진행 중인' in page.locator('#note').inner_text()
     page.locator('#cancel').click()
     page.locator('nav [data-page]').nth(2).click();page.locator('#wide').check();page.locator('[data-bay="A3"]').click();page.locator('#arrived').click()
     for i in range(3):page.locator('#check'+str(i)).check()
@@ -31,5 +33,5 @@ with sync_playwright() as p:
         results.append({'viewport':f'{width}x{height}','screens':4,'horizontalOverflow':False});ctx.close()
     browser.close()
 assert not errors,errors
-(out/'verification.json').write_text(json.dumps({'source':'browser design mockup; NOT APK or Pleos execution','errors':errors,'layout':results,'flows':['signals','early exit','late exit reroute','explicit order','wide bay','approval invalidation','handoff preview']},ensure_ascii=False,indent=2),encoding='utf-8')
+(out/'verification.json').write_text(json.dumps({'source':'browser design mockup; NOT APK or Pleos execution','errors':errors,'layout':results,'flows':['signals','early exit','late exit reroute','explicit order','active order reset protection','wide bay','approval invalidation','handoff preview']},ensure_ascii=False,indent=2),encoding='utf-8')
 print(json.dumps(results))

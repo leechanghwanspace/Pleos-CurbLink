@@ -54,7 +54,7 @@ object JourneyStore {
                 gpsReady = false, role = CabinRole.DRIVER, locationVersion = number("locationVersion") + 1,
                 accessTrip = access, bay = bay, selectedMenu = selected, mealStep = step, order = order,
                 source = VehicleSource.UNAVAILABLE, gear = VehicleGear.UNKNOWN, servicesReady = false, routeReady = false,
-                received = flag("received"), spaceChecked = false, rampReady = false, staffAccepted = false,
+                handoffPhotoUris = emptyList(), received = flag("received"), spaceChecked = false, rampReady = false, staffAccepted = false,
                 accessApproved = false, exitProgress = 0, locationShared = false, confirmedLocation = null,
                 note = "여정·주문 기록을 복구했습니다. 차량과 서비스 연결을 확인하고 있습니다.")
         } catch (_: Exception) {

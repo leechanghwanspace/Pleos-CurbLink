@@ -52,24 +52,29 @@ private val Shape=RoundedCornerShape(24.dp)
     var tts by remember { mutableStateOf<TextToSpeech?>(null) }
     var ttsReady by remember { mutableStateOf(false) }
     var spokenNote by remember { mutableStateOf<String?>(null) }
+    var speechSequence by remember { mutableIntStateOf(0) }
     DisposableEffect(context){
         tts=TextToSpeech(context){ttsReady=it==TextToSpeech.SUCCESS}
         onDispose{tts?.stop();tts?.shutdown()}
     }
-    LaunchedEffect(spokenNote,ttsReady){if(ttsReady)spokenNote?.let{tts?.language=Locale.KOREAN;tts?.speak(it,TextToSpeech.QUEUE_FLUSH,null,"curblink")}}
+    LaunchedEffect(spokenNote,ttsReady,speechSequence){if(ttsReady)spokenNote?.let{tts?.language=Locale.KOREAN;tts?.speak(it,TextToSpeech.QUEUE_FLUSH,null,"curblink")}}
     val permission=rememberLauncherForActivityResult(ActivityResultContracts.RequestMultiplePermissions()){vm.actualGps()}
     fun gps(){if(context.checkSelfPermission(Manifest.permission.ACCESS_FINE_LOCATION)==PackageManager.PERMISSION_GRANTED || context.checkSelfPermission(Manifest.permission.ACCESS_COARSE_LOCATION)==PackageManager.PERMISSION_GRANTED)vm.actualGps()
         else permission.launch(arrayOf(Manifest.permission.ACCESS_FINE_LOCATION,Manifest.permission.ACCESS_COARSE_LOCATION))}
     val voice=rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()){result->
-        result.data?.getStringArrayListExtra(RecognizerIntent.EXTRA_RESULTS)?.firstOrNull()?.let{vm.voice(it);spokenNote=vm.state.value.note}
+        val transcript=result.data?.getStringArrayListExtra(RecognizerIntent.EXTRA_RESULTS)?.firstOrNull()
+        if(transcript.isNullOrBlank())vm.note("음성 입력이 취소되었거나 내용을 인식하지 못했습니다. 기존 선택은 유지합니다.")
+        else {vm.voice(transcript);spokenNote=vm.state.value.note;speechSequence++}
     }
     fun listen(){
         val intent=Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).putExtra(RecognizerIntent.EXTRA_LANGUAGE,"ko-KR").putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL,RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
         try{voice.launch(intent)}catch(_:Exception){vm.note("음성 서비스를 사용할 수 없습니다. 안전한 곳에 정차 후 화면을 조작해 주세요.")}
     }
-    var photos by remember(s.locationKey){mutableStateOf<List<Uri>>(emptyList())}
+    val photos=s.handoffPhotoUris.map(Uri::parse)
+    var photoPickerTrip by remember { mutableStateOf<String?>(null) }
     val picker=rememberLauncherForActivityResult(ActivityResultContracts.OpenMultipleDocuments()){uris->
-        if(vm.state.value.canEdit){photos=uris.take(4);vm.invalidateHandoff()}
+        vm.attachPhotos(uris.map(Uri::toString),photoPickerTrip)
+        photoPickerTrip=null
     }
     fun share(){
         val current=vm.currentShareState() ?: return
@@ -102,7 +107,7 @@ private val Shape=RoundedCornerShape(24.dp)
                         0->Arrival(s,vm,wide)
                         1->Dining(s,vm,wide,::gps,::listen)
                         2->Access(s,vm,wide)
-                        else->Handoff(s,vm,wide,photos.size,::gps,{picker.launch(arrayOf("image/*"))},::share)
+                        else->Handoff(s,vm,wide,photos.size,::gps,{photoPickerTrip=s.tripId;picker.launch(arrayOf("image/*"))},::share)
                     }
                 }
                 Row(Modifier.fillMaxWidth().background(Color.White,RoundedCornerShape(18.dp)).padding(12.dp),verticalAlignment=Alignment.CenterVertically,horizontalArrangement=Arrangement.spacedBy(12.dp)){
@@ -301,6 +306,7 @@ private val Shape=RoundedCornerShape(24.dp)
         Row(horizontalArrangement=Arrangement.spacedBy(10.dp)){listOf("좌측","우측").forEach{CameraSlot(it,Modifier.weight(1f))}}
         Copy("차량 어라운드뷰 제공자 미연결. 실제 촬영 이미지는 사진 선택으로 첨부할 수 있습니다.")
         Primary("주변 사진 선택 · 최대 4장 ($count/4)",s.canEdit,attach)
+        if(count>0)OutlinedButton(onClick=vm::clearPhotos,enabled=s.canEdit){Text("첨부 사진 모두 제거")}
     }
 },{
     Panel("찾아오기 쉬운 인계 카드","LOCATION CARD ${s.locationVersion}"){
