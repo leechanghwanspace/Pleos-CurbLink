@@ -20,7 +20,7 @@ if ($Mode -eq 'Auto') {
 }
 $needsApk = $Mode -in @('Integrated','Apk')
 $needsWeb = $Mode -in @('Simulation','Integrated')
-$apk = Join-Path $projectRoot 'release/CurbLink-Drive-0.5.1-arrival-studio.apk'
+$apk = Join-Path $projectRoot 'release/CurbLink-Drive-0.5.2-arrival-preview.apk'
 $python = Get-Command python -ErrorAction SilentlyContinue
 $adb = Get-Command adb -ErrorAction SilentlyContinue
 $adbExe = if ($adb) { $adb.Source } else { $null }

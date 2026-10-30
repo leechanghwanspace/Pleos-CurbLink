@@ -116,6 +116,6 @@
   if(action==='RECEIVE'&&s.phase==='HANDOFF'&&s.orderStatus==='ARRIVED'&&(s.kind!=='RIVER'||s.locationShared))return {...s,waiting:false,received:true,done:true};
   return s;
  }
- function accessRoutes(zone){const result=routes.ACCESS.slice();result[1]=curve([[5.25,522],[5.25,540],[18,552],[60,552],[70,565],[zone.x,zone.z]]);return result;}
+ function accessRoutes(zone,from=null){const result=routes.ACCESS.slice();result[1]=curve(from?[[from.x,from.z],[76,from.z],[76,zone.z],[zone.x,zone.z]]:[[5.25,522],[5.25,540],[18,552],[60,552],[70,565],[zone.x,zone.z]]);return result;}
  const api={presets,routes,initial,advance,act,sample,accessRoutes};root.MissionEngine=api;if(typeof module!=='undefined')module.exports=api;
 })(typeof globalThis!=='undefined'?globalThis:window);

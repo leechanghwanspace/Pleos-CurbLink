@@ -61,7 +61,8 @@ class MobilityViewModel(app: Application) : AndroidViewModel(app) {
             locationVersion=if(changed)s.locationVersion+1 else s.locationVersion,
             locationShared=if(changed)false else s.locationShared,confirmedLocation=if(changed)null else s.confirmedLocation,
             accessApproved=if(changed)false else s.accessApproved,spaceChecked=if(changed)false else s.spaceChecked,
-            accessTrip=if(changed)false else s.accessTrip,bay=if(changed)null else s.bay,exitProgress=if(changed)0 else s.exitProgress)
+            accessTrip=if(changed)false else s.accessTrip,bay=if(changed)null else s.bay,
+            unavailableBayIds=if(changed)emptySet() else s.unavailableBayIds,exitProgress=if(changed)0 else s.exitProgress)
     }
     fun observeVehicle(value: VehicleObservation) {
         if(value.observedAtMs<(lastVehicle?.observedAtMs?:Long.MIN_VALUE))return
@@ -82,6 +83,8 @@ class MobilityViewModel(app: Application) : AndroidViewModel(app) {
     fun observeAccessProgress(value: Int)=update{if(it.accessApproved&&MobilityRules.exitConditions(it))it.copy(exitProgress=value.coerceIn(0,100))else it}
     fun page(value:Int)=update{it.copy(page=value.coerceIn(0,3))}
     fun note(text:String)=update{it.copy(note=text)}
+    fun voiceUnavailable()=update(JourneyTransitions::voiceUnavailable)
+    fun shareUnavailable()=update(JourneyTransitions::shareUnavailable)
     fun destination(place:DemoPlace)=update{s->
         if(!s.canEdit)s.copy(note="P단 정차 상태에서 목적지를 변경해 주세요.")
         else if(s.order!=null&&!s.received)s.copy(note="진행 중인 주문의 수령 목적지를 먼저 확인해 주세요.")
@@ -108,7 +111,7 @@ class MobilityViewModel(app: Application) : AndroidViewModel(app) {
     }
     fun role(value:CabinRole)=update{if(it.canEdit)it.copy(role=value)else it}
 
-    private fun locationUnavailable()=update{it.copy(gpsReady=false,lat=null,lon=null,locationShared=false,confirmedLocation=null,note="현재 위치를 읽지 못했습니다. GPS 수신과 위치 권한을 확인해 주세요.")}
+    private fun locationUnavailable()=update(JourneyTransitions::locationUnavailable)
     @Suppress("MissingPermission") fun actualGps(){
         try{
             val manager=getApplication<Application>().getSystemService(Context.LOCATION_SERVICE) as LocationManager
@@ -160,13 +163,14 @@ class MobilityViewModel(app: Application) : AndroidViewModel(app) {
     }
     fun selectBay()=update{s->
         if(!s.canEdit||!s.servicesReady)s.copy(note="P단 정차 및 차량 연결 상태에서 하차 지점을 선택해 주세요.")
-        else MobilityRules.assess(s.needs).firstOrNull{it.eligible}?.bay?.let{JourneyTransitions.selectBay(s,it)}
+        else s.bayAssessments.firstOrNull{it.eligible}?.bay?.let{JourneyTransitions.selectBay(s,it)}
             ?:s.copy(note="조건에 맞는 하차 지점이 없습니다. 지원 조건을 확인하거나 현장 도움을 요청해 주세요.")
     }
     fun chooseBay(bay:AccessBay)=update{JourneyTransitions.selectBay(it,bay)}
+    fun unavailableBay(id:String)=update{JourneyTransitions.unavailableBay(it,id)}
     fun resetAccessSelection()=update{s->
         if(!s.canEdit)s.copy(note="P단 정차 상태에서 변경해 주세요.")
-        else s.copy(accessTrip=false,bay=null,spaceChecked=false,rampReady=false,staffAccepted=false,obstacle=false,accessApproved=false,exitProgress=0,exitHeld=false,note="하차 지원 조건과 후보 베이를 다시 선택합니다.")
+        else s.copy(accessTrip=false,bay=null,spaceChecked=false,rampReady=false,staffAccepted=false,accessApproved=false,exitProgress=0,exitHeld=false,note="하차 지원 조건과 후보 베이를 다시 선택합니다.")
     }
     fun check(name:String,value:Boolean)=update{s->
         val readyState=s

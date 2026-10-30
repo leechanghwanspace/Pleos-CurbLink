@@ -1273,7 +1273,7 @@
         setVehicleState(prev => ({ ...prev, speedKph: frame.speedKph,
           gear: frame.gear || (frame.stopped ? 'P' : 'D'), uxRestricted: !frame.stopped, hazards: Boolean(frame.hazards) }));
         setScenarioState(prev => ({ ...prev, pickupZoneConfirmed:
-          frame.stopped && frame.phase !== 'MEAL_SETUP' && frame.phase !== 'ACCESS_SETUP' && frame.mode !== CurbLane.DestinationMode.PARKING }));
+          frame.stopped && !['MEAL_SETUP','ACCESS_SETUP','ACCESS_RESELECT'].includes(frame.phase) && frame.mode !== CurbLane.DestinationMode.PARKING }));
       }, []);
       const beginDestinationDemo = useCallback(() => {
         setAutoPlayState(prev => ({ ...prev, playing: false, narration: '', simulatedInputBanner: false }));
