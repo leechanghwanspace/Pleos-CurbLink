@@ -1,7 +1,7 @@
 {
   "dateKST": "2026-10-30",
   "branch": "integration",
-  "baseCommit": "f3f7828",
+  "baseCommit": "a933f65",
   "status": "uncommitted development snapshot; no release promotion",
   "versionName": "0.5.1-arrival-studio",
   "versionCode": 7,
