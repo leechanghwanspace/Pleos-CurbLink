@@ -1,3 +1,5 @@
+[이력 문서] 2026-10-25 초기 빌드의 검증 기록입니다. 최신 검증 결과는 README의 "검증 기록"과 submission/video/apk-verification.json을 봅니다.
+
 검증 기록 · Pleos CurbLink
 기준일: 2026-10-25 (Asia/Seoul)
 
