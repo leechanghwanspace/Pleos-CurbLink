@@ -21,4 +21,4 @@ adb -s emulator-5554 install -r -g release/CurbLink-Drive-0.4-pleos-connected-pr
 adb -s emulator-5554 shell am start --user 10 -n io.curblink.demo/.MainActivity
 ```
 
-[설치·검증·남은 작업](../docs/HOME_PC_PROGRESS.md) · [안티그래피 인수인계](../docs/ANTIGRAVITY_HANDOFF.md). 이 프리뷰는 Pleos 에뮬레이터의 실제 `CarService`/`NaviHelper` IPC 연결을 검증한 것이며, 실차 주행 검증이나 실제 주문·결제·시설 계약 완료, 공식 폼팩터/접근성 인증을 의미하지 않는다.
+[0.5.2 게시 기록](../docs/UPDATE_0_5_2.md). 이 프리뷰는 Pleos 에뮬레이터의 실제 `CarService`/`NaviHelper` IPC 연결을 검증한 것이며, 실차 주행 검증이나 실제 주문·결제·시설 계약 완료, 공식 폼팩터/접근성 인증을 의미하지 않는다.
