@@ -103,6 +103,7 @@ class MobilityViewModel(app: Application) : AndroidViewModel(app) {
     }
     fun reset()=update(JourneyTransitions::reset)
     fun attachPhotos(uris:List<String>,tripId:String?)=update{JourneyTransitions.attachPhotos(it,uris,tripId)}
+    fun attachPhotoAt(index:Int,uri:String?,tripId:String?)=update{JourneyTransitions.attachPhotoAt(it,index,uri,tripId)}
     fun clearPhotos()=update{if(it.canEdit)it.copy(handoffPhotoUris=emptyList(),locationShared=false,confirmedLocation=null,note="첨부 사진을 모두 제거했습니다.")else it}
     fun observeLocation(label:String,latitude:Double?=null,longitude:Double?=null)=update{
         if(latitude==null||longitude==null||!latitude.isFinite()||!longitude.isFinite()||latitude !in -90.0..90.0||longitude !in -180.0..180.0) it
