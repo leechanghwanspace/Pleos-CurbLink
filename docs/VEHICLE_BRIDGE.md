@@ -1,3 +1,5 @@
+> **이력 문서:** 2026-10-27 초기 구상(로컬 차량 시연 브리지 v1)의 설명입니다. 현재 앱은 이 브리지 대신 Pleos CarService·NaviHelper에 직접 연결합니다. 현재 구조는 [ARCHITECTURE.md](ARCHITECTURE.md)를 봅니다.
+
 # CurbLink 차량 시연 브리지 v1
 
 실차·Pleos·Gleo·CarPay에 연결하지 않는 로컬 시연용 모의 차량 제어기다. Android APK는 기존 주문/직원 인증/배려 준비 안전 판단을 유지한다. 브리지는 명령 처리 순간 차량 조건을 추가 확인한다. 브라우저는 3D 표시와 평가자용 상태 주입을 담당한다.

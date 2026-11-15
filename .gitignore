@@ -33,3 +33,6 @@ release/*-source.zip.sha256
 AGENTS.md
 .agents/
 .local-notes/
+
+# Proposal DOCX is submitted by email; the source is docs/기획서_CurbLink_Drive.md
+submission/*.docx
