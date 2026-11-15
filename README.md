@@ -8,7 +8,7 @@
 
 | 파일 | 설명 |
 |---|---|
-| [`apk/CurbLink_CurbLink_release.apk`](apk/CurbLink_CurbLink_release.apk) · [SHA-256](apk/CurbLink_CurbLink_release.apk.sha256) | **제출용 release 빌드** (현재 로컬 debug 키 서명). 시뮬레이션·시험 코드 미포함, v2 서명, 16KB 정렬 통과 |
+| [`apk/이창환_CurbLink_release.apk`](apk/이창환_CurbLink_release.apk) · [SHA-256](apk/이창환_CurbLink_release.apk.sha256) | **제출용 release 빌드** (현재 로컬 debug 키 서명). 시뮬레이션·시험 코드 미포함, v2 서명, 16KB 정렬 통과 |
 | [release APK 시연 영상](submission/video/curblink-apk-demo.mp4) (2분 49초, 2560×1440) | Pleos Connect v2.1.0 에뮬레이터, 실제 차량 연결(P단)에서 식사 예약 → 하차 대안 → 안전 확인 → 방향별 주변 이미지 첨부 → 위치 카드 |
 | [스크린샷](submission/README.md#release-apk-화면-pleos-connect-v210-25601440) | release APK 화면 9장. 현장 인계의 주변 이미지는 [3D로 렌더링한 예시](submission/example-photos/README.md)이며 실제 사진이 아님 |
 
@@ -24,7 +24,7 @@
 ## 설치와 실행
 
 ```powershell
-adb install -r apk/CurbLink_CurbLink_release.apk
+adb install -r apk/이창환_CurbLink_release.apk
 ```
 
 앱 목록에서 **CurbLink Drive**를 실행합니다. 이미 다른 서명으로 설치되어 있으면 앱 데이터를 지우기 전에 인증서를 먼저 확인하세요.
