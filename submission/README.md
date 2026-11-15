@@ -9,10 +9,11 @@
 
 | 영상 | 길이 | 내용 |
 |---|---|---|
-| [curblink-apk-demo.mp4](video/curblink-apk-demo.mp4) | 2분 4초 | **release APK**를 Pleos Connect v2.1.0 에뮬레이터에서 실행. 실제 CarService·NaviHelper 연결(P단) 상태에서 식사 추천→주문 예약, 하차 후보 비교→A-2 이용 불가→A-3 대안→안전 확인→입구 도착, 위치 카드 확인까지 |
+| [curblink-apk-demo.mp4](video/curblink-apk-demo.mp4) | 2분 49초 | **release APK**를 Pleos Connect v2.1.0 에뮬레이터에서 실행 (2560×1440). 실제 CarService·NaviHelper 연결(P단) 상태에서 식사 추천→주문 예약, 하차 후보 비교→A-2 이용 불가→A-3 대안→안전 확인→입구 도착, 전방·후방·좌측·우측 칸을 하나씩 눌러 주변 이미지 첨부→위치 카드 확인까지 |
 | [curblink-simulation-demo.mp4](video/curblink-simulation-demo.mp4) | 3분 48초 | **(앱 UI 아님 · 개발용 검증 환경)** 웹 주행 시뮬레이션의 여섯 여정(픽업·주차·잠시 정차·식사·한강 인계·배리어프리)을 처음부터 끝까지 |
 
-- APK 영상: `adb screenrecord` 원본(2560×1440)을 저장소 용량 때문에 1920×1080 H.264로 다시 인코딩했습니다. 자르거나 덧입힌 장면은 없습니다. 기록: [video/apk-verification.json](video/apk-verification.json)
+- APK 영상: `adb screenrecord` 원본(2560×1440, 20Mbps)을 같은 해상도의 고화질 H.264(crf 16)로 다시 인코딩했습니다. 자르거나 덧입힌 장면은 없습니다. 기록: [video/apk-verification.json](video/apk-verification.json)
+- 현장 인계 칸의 주변 이미지는 **팀이 3D로 렌더링한 가상의 공원 주차장**입니다. 실제 사진이나 차량 카메라 영상이 아닙니다. [예시 이미지와 만드는 방법](example-photos/README.md)
 - APK 영상은 차량이 **P단 정차** 상태이고 시험용 주행 입력을 넣지 않았습니다. 그래서 주행 중 차선 안내 화면은 이 영상에 없고, 웹 시뮬레이션 영상에서 볼 수 있습니다. 매장·메뉴·시설·주문은 견본 데이터이며 실제로 전송·결제되지 않습니다. 에뮬레이터 GPS에는 시험 좌표(서울시청)를 넣었습니다.
 - 웹 영상: Chrome 헤드리스 소프트웨어 렌더링이며, 물리 GPU나 실차 주행 검증이 아닙니다. 기록: [video/verification.json](video/verification.json)
 
@@ -39,9 +40,11 @@ APK 영상과 같은 실행에서 `adb screencap`으로 촬영한 원본 PNG입�
 |---|---|
 | ![후보 비교](screenshots/apk/05-access-comparison.png) | ![대안](screenshots/apk/06-access-a2-unavailable-alternative.png) |
 
-| 안전 확인 · 입구 도착 | 위치 카드 확인 |
+| 안전 확인 · 입구 도착 | 방향별 주변 이미지 첨부 (3D 렌더링 예시) |
 |---|---|
-| ![입구 도착](screenshots/apk/07-access-entrance-confirmed.png) | ![위치 카드](screenshots/apk/08-handoff-location-card.png) |
+| ![입구 도착](screenshots/apk/07-access-entrance-confirmed.png) | ![주변 이미지 첨부](screenshots/apk/08-handoff-photos-attached.png) |
+
+![위치 카드 확인](screenshots/apk/09-handoff-location-card.png)
 
 ## 이전 APK 화면 (0.5.2 debug 프리뷰, 시험 입력 포함)
 

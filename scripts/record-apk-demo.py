@@ -3,10 +3,14 @@
 The vehicle stays in P with real CarService/NaviHelper readings; no TEST observations are injected,
 so the driving lane screen is not exercised here (see the web simulation video for driving).
 
+Example handoff photos: put front/rear/left/right images (jpg/png/webp) in submission/example-photos/.
+They are added to the emulator gallery of the current Android user and attached by tapping each
+direction slot in the app and choosing the photo in the system photo picker, exactly as a user would.
+
 Output:
-  submission/video/curblink-apk-demo.mp4      adb screenrecord, re-encoded to 1920x1080 H.264 (original kept in work/)
+  submission/video/curblink-apk-demo.mp4      adb screenrecord at device resolution, H.264 re-encode (crf 16)
   submission/screenshots/apk/*.png            adb screencap, unchanged PNG bytes
-  submission/video/apk-verification.json      device, APK hash, steps, captures
+  submission/video/apk-verification.json      device, APK hash, photos, steps, captures
 
 Usage: python scripts/record-apk-demo.py --serial emulator-5554 [--hold 2.5]
 The existing install is updated with `adb install -r`; app data is never cleared. If the installed
@@ -30,6 +34,13 @@ SHOTS = ROOT / 'submission/screenshots/apk'
 REMOTE = '/sdcard/curblink-apk-demo.mp4'
 # Test coordinate for the emulator GPS (Seoul City Hall); not a user location.
 TEST_LON, TEST_LAT = '126.9780', '37.5665'
+PHOTOS = ROOT / 'submission/example-photos'
+PHOTO_ORDER = ['front', 'rear', 'left', 'right']  # app slots: 전방, 후방, 좌측, 우측
+PHOTO_PREFIX = 'curblink-example-'
+MEDIA = 'content://media/external_primary/images/media'
+MIME = {'.jpg': 'image/jpeg', '.jpeg': 'image/jpeg', '.png': 'image/png', '.webp': 'image/webp'}
+photo_times = {}  # photo stem -> time label the picker shows (from the row's date_modified)
+SLOT_LABEL = {'front': '전방', 'rear': '후방', 'left': '좌측', 'right': '우측'}
 
 parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
 parser.add_argument('--serial', required=True)
@@ -130,7 +141,19 @@ def set_switch(label, on=True, record=True):
     raise RuntimeError('Switch did not change: ' + label)
 
 
+def ensure_app():
+    """Bring CurbLink back to the front if another app (e.g. Pleos navigation) took over."""
+    for _ in range(3):
+        top = adb('shell', 'dumpsys', 'activity', 'activities').split('topResumedActivity', 1)[-1][:300]
+        if PKG in top:
+            return
+        adb('shell', 'am', 'start', '-n', f'{PKG}/.MainActivity')
+        time.sleep(3)
+    raise RuntimeError('CurbLink is not in the foreground')
+
+
 def tab(label):
+    ensure_app()
     # Tabs live above the scrolling content; scroll content back to the top first.
     for _ in range(3):
         swipe('down')
@@ -149,7 +172,84 @@ def shot(name):
     print('SHOT:', name, flush=True)
 
 
+def example_photos():
+    found = []
+    for name in PHOTO_ORDER:
+        match = [p for p in PHOTOS.glob(name + '.*') if p.suffix.lower() in MIME]
+        if len(match) != 1:
+            raise SystemExit(f'Expected exactly one {name}.jpg/png/webp in {PHOTOS}')
+        found.append(match[0])
+    return found
+
+
+def stage_photos(user, photos):
+    """Publish the photos to the current user's gallery: newest first = front, so the picker grid
+    shows them as front, rear, left, right. Rows are written while pending so the picker never
+    indexes a partial file."""
+    adb('shell', 'content', 'delete', '--user', user, '--uri', f"'{MEDIA}?includePending=1'",
+        '--where', f"\"_display_name LIKE '{PHOTO_PREFIX}%'\"", check=False)
+    for path in reversed(photos):
+        display = PHOTO_PREFIX + path.name
+        adb('shell', 'content', 'insert', '--user', user, '--uri', MEDIA,
+            '--bind', f'_display_name:s:{display}', '--bind', f'mime_type:s:{MIME[path.suffix.lower()]}',
+            '--bind', 'relative_path:s:Pictures/CurbLink/', '--bind', 'is_pending:i:1')
+        rows = adb('shell', 'content', 'query', '--user', user, '--uri', f"'{MEDIA}?includePending=1'",
+                   '--projection', '_id:_display_name')
+        row_id = re.search(rf'_id=(\d+), _display_name={re.escape(display)}', rows)[1]
+        # exec-in truncates larger inputs, so stage the file where the shell user can read it.
+        staged = f'/data/local/tmp/{display}'
+        adb('push', str(path), staged, timeout=120)
+        adb('shell', f"content write --user {user} --uri {MEDIA}/{row_id} < '{staged}'", timeout=120)
+        adb('shell', 'rm', '-f', staged, check=False)
+        adb('shell', 'content', 'update', '--user', user, '--uri', f"'{MEDIA}/{row_id}?includePending=1'",
+            '--bind', 'is_pending:i:0')
+        for _ in range(10):
+            row = re.search(rf'_id={row_id}, _size=(\d+), date_modified=(\d+)', adb(
+                'shell', 'content', 'query', '--user', user, '--uri', MEDIA, '--projection', '_id:_size:date_modified'))
+            if row and int(row[1]) == path.stat().st_size:
+                break
+            time.sleep(.5)
+        else:
+            raise SystemExit(f'Gallery copy of {path.name} is incomplete')
+        # The picker labels each tile with its time in the device timezone, e.g. "오후 3:43:54".
+        offset = adb('shell', 'date', '+%z')
+        sign = -1 if offset.startswith('-') else 1
+        local = int(row[2]) + sign * (int(offset[1:3]) * 3600 + int(offset[3:5]) * 60)
+        h, m, s = (local // 3600) % 24, (local // 60) % 60, local % 60
+        photo_times[path.stem] = f'{"오전" if h < 12 else "오후"} {(h % 12) or 12}:{m:02d}:{s:02d}'
+        print('PHOTO:', path.name, '->', row_id, photo_times[path.stem], flush=True)
+        time.sleep(1.2)  # distinct date_added seconds keep every tile label unique
+
+
+def wait_picker(open_=True):
+    for _ in range(20):
+        top = adb('shell', 'dumpsys', 'activity', 'activities').split('topResumedActivity', 1)[-1][:300]
+        if ('PhotoPicker' in top) == open_:
+            return
+        time.sleep(.5)
+    raise RuntimeError('System photo picker did not ' + ('open' if open_ else 'close'))
+
+
+def pick_slot(name):
+    """Tap one direction slot in the app, then choose that direction's photo in the system picker.
+    Each slot opens a single-photo picker, so the photo lands in exactly that slot."""
+    tap(f'눌러서 {SLOT_LABEL[name]} 사진 선택', label=f'slot {SLOT_LABEL[name]}: open photo picker')
+    wait_picker(True)
+    hold(.5)
+    stamp = photo_times[name]
+    tiles = [n for n in nodes() if '촬영' in (n.get('content-desc') or '') and n.get('clickable') == 'true']
+    match = [n for n in tiles if stamp in n.get('content-desc')]
+    assert len(match) == 1, f'Picker tile for {name} ({stamp}) not found: {[n.get("content-desc") for n in tiles]}'
+    x, y = center(match[0])
+    adb('shell', 'input', 'tap', str(x), str(y))
+    steps.append(f'photo picker: choose {name}')
+    print('PICK:', name, stamp, flush=True)
+    wait_picker(False)
+    time.sleep(1.5)  # thumbnail decodes off the main thread
+
+
 # --- prepare device -------------------------------------------------------------------------
+photos = example_photos()
 for _ in range(120):
     if adb('shell', 'getprop', 'sys.boot_completed', check=False) == '1':
         break
@@ -169,6 +269,10 @@ for perm in ['android.permission.ACCESS_FINE_LOCATION', 'android.permission.ACCE
 adb('emu', 'geo', 'fix', TEST_LON, TEST_LAT, check=False)
 adb('shell', 'am', 'force-stop', PKG)
 adb('shell', 'rm', '-f', REMOTE, check=False)
+current_user = adb('shell', 'am', 'get-current-user')
+stage_photos(current_user, photos)
+for old in SHOTS.glob('*.png'):
+    old.unlink()
 
 # --- reset the demo trip through the app's own controls (no data clearing), before recording ---
 adb('shell', 'am', 'start', '-n', f'{PKG}/.MainActivity')
@@ -183,17 +287,21 @@ tab('03  편안한 하차')
 for label, on in [('휠체어 옆문 공간', True), ('문을 넓게 열 공간 · 2m 이상', False),
                   ('더 완만한 경사 · 2% 이하', False), ('현장 직원 지원', True)]:
     set_switch(label, on, record=False)
+tab('04  현장 인계')
+if find('첨부 사진 모두 제거') is not None:
+    tap('첨부 사진 모두 제거', label='pre-roll: remove previous photos')
 tab('01  도착 안내')
 steps.clear()
 adb('shell', 'am', 'force-stop', PKG)
 
 # --- record ---------------------------------------------------------------------------------
-recorder = subprocess.Popen([args.adb, '-s', args.serial, 'shell', 'screenrecord', '--bit-rate', '8000000',
+recorder = subprocess.Popen([args.adb, '-s', args.serial, 'shell', 'screenrecord', '--bit-rate', '20000000',
                              '--time-limit', '180', REMOTE])
 time.sleep(1.5)
 try:
     adb('shell', 'am', 'start', '-n', f'{PKG}/.MainActivity')
     time.sleep(5)  # wait for CarService/NaviHelper connection badge
+    ensure_app()
     assert find('P · 차량 연결') is not None, 'Vehicle connection badge (P) not shown'
     shot('01-arrival-connected')
     hold()
@@ -236,10 +344,17 @@ try:
 
     tab('04  현장 인계')
     hold(.6)
+    for name in PHOTO_ORDER:
+        pick_slot(name)
+        hold(.4)
+    assert find('사진을 불러오지 못했습니다 · 다시 선택해 주세요') is None, 'An attached photo failed to load'
+    assert find('주변 사진 선택 · 최대 4장 (4/4)') is not None, 'Four photos were not attached'
+    hold()
+    shot('08-handoff-photos-attached')
     tap('현재 GPS 다시 확인')
     tap('이 위치와 사진을 확인했어요')
     hold()
-    shot('08-handoff-location-card')
+    shot('09-handoff-location-card')
     hold()
 finally:
     adb('shell', 'pkill', '-INT', 'screenrecord', check=False)
@@ -257,10 +372,9 @@ adb('pull', REMOTE, str(original), timeout=180)
 ffmpeg = shutil.which('ffmpeg')
 if not ffmpeg:
     raise SystemExit('ffmpeg not found; original recording kept at ' + str(original))
-# Re-encode for repository size only: same frames scaled to 1920x1080, no cuts or overlays.
-subprocess.run([ffmpeg, '-y', '-loglevel', 'error', '-i', str(original), '-vf', 'scale=1920:1080:flags=lanczos',
-                '-c:v', 'libx264', '-preset', 'medium', '-crf', '24', '-pix_fmt', 'yuv420p', '-movflags', '+faststart',
-                str(mp4)], check=True)
+# Re-encode at the device resolution with near-lossless quality: no scaling, cuts or overlays.
+subprocess.run([ffmpeg, '-y', '-loglevel', 'error', '-i', str(original), '-c:v', 'libx264', '-preset', 'slow',
+                '-crf', '16', '-pix_fmt', 'yuv420p', '-movflags', '+faststart', str(mp4)], check=True)
 adb('shell', 'rm', '-f', REMOTE, '/sdcard/curblink-ui.xml', check=False)
 duration = None
 ffprobe = shutil.which('ffprobe')
@@ -279,8 +393,12 @@ record = {
                'display': adb('shell', 'wm', 'size').splitlines()[-1], 'density': adb('shell', 'wm', 'density').splitlines()[-1]},
     'testLocation': {'lon': TEST_LON, 'lat': TEST_LAT, 'note': 'emulator geo fix test coordinate'},
     'apk': {'file': 'apk/CurbLink_CurbLink_release.apk', 'sha256': hashlib.sha256(APK.read_bytes()).hexdigest()},
+    'examplePhotos': {'note': 'example images supplied by the team in submission/example-photos (see its README); '
+                              'attached through the app and the system photo picker, not vehicle camera images',
+                      'files': [{'slot': s, 'file': f'example-photos/{p.name}', 'sha256': hashlib.sha256(p.read_bytes()).hexdigest()}
+                                for s, p in zip(['전방', '후방', '좌측', '우측'], photos)]},
     'video': {'file': 'video/curblink-apk-demo.mp4',
-              'capture': 'adb shell screenrecord at device resolution, re-encoded with ffmpeg to 1920x1080 H.264 (crf 24) for repository size; no cuts or overlays',
+              'capture': 'adb shell screenrecord at device resolution (20 Mbps), re-encoded with ffmpeg H.264 crf 16 at the same resolution; no cuts or overlays',
               'durationSeconds': duration, 'size': size if ffprobe else None,
               'bytes': len(data), 'sha256': hashlib.sha256(data).hexdigest(),
               'originalSha256': hashlib.sha256(original.read_bytes()).hexdigest(),

@@ -15,19 +15,44 @@
   },
   "apk": {
     "file": "apk/CurbLink_CurbLink_release.apk",
-    "sha256": "25c656ca6a0574be9b7742476a6ba701d635bde359e7493b52d9a9279af71ed3"
+    "sha256": "59f489fbb49d49000759d557d1fb16287c66201ec721e2c3a17b8c02511630f0"
+  },
+  "examplePhotos": {
+    "note": "example images supplied by the team in submission/example-photos (see its README); attached through the app and the system photo picker, not vehicle camera images",
+    "files": [
+      {
+        "slot": "전방",
+        "file": "example-photos/front.jpg",
+        "sha256": "1598f753c783e3124ef8491c77e5a72796baaf9d98db0e0fb28d8a4da4fb93d3"
+      },
+      {
+        "slot": "후방",
+        "file": "example-photos/rear.jpg",
+        "sha256": "890fde1b2b284b72fe4e4b85dc5c69c59ca71bf92f0197bbdff9b748e5a457d1"
+      },
+      {
+        "slot": "좌측",
+        "file": "example-photos/left.jpg",
+        "sha256": "a828a283b7f7ca7c22d66dcb68dc14515a9db3a246b4264e152243c86755095d"
+      },
+      {
+        "slot": "우측",
+        "file": "example-photos/right.jpg",
+        "sha256": "066109a5e0e4661a230161d2e88d392872648f7a85d98965c6d17a4b98767e22"
+      }
+    ]
   },
   "video": {
     "file": "video/curblink-apk-demo.mp4",
-    "capture": "adb shell screenrecord at 2560x1440, re-encoded with ffmpeg to 1920x1080 H.264 (crf 24) for repository size; no cuts or overlays",
-    "durationSeconds": 124.4,
+    "capture": "adb shell screenrecord at device resolution (20 Mbps), re-encoded with ffmpeg H.264 crf 16 at the same resolution; no cuts or overlays",
+    "durationSeconds": 168.8,
     "size": {
-      "width": 1920,
-      "height": 1080
+      "width": 2560,
+      "height": 1440
     },
-    "bytes": 2513811,
-    "sha256": "989bf4d2520805264d052025912f7005de08fe9ed52eba181700e5accd2a16ff",
-    "originalSha256": "176619792b000b5cb27d7a939dc0a9d8c8fa016c9d52c960e475c646da1abe27",
+    "bytes": 15749572,
+    "sha256": "fc7c1b09c671a46ead307c6668b301edf2b57d8591f74d5d030a867917c9ddc3",
+    "originalSha256": "c01510cbd0dbeb88530b3c03386996152991225591fdeb565490f2f132644b1d",
     "originalKeptLocally": "work/submission-video (not committed)"
   },
   "steps": [
@@ -45,6 +70,14 @@
     "주변 확인 · 하차 안내 승인",
     "입구 도착 확인",
     "04  현장 인계",
+    "slot 전방: open photo picker",
+    "photo picker: choose front",
+    "slot 후방: open photo picker",
+    "photo picker: choose rear",
+    "slot 좌측: open photo picker",
+    "photo picker: choose left",
+    "slot 우측: open photo picker",
+    "photo picker: choose right",
     "현재 GPS 다시 확인",
     "이 위치와 사진을 확인했어요"
   ],
@@ -53,57 +86,64 @@
       "file": "screenshots/apk/01-arrival-connected.png",
       "width": 2560,
       "height": 1440,
-      "sha256": "cdeb0c2db7c5d6b62bccc992c44b2eae4662117a5bced061dabba5e041260c4a",
-      "bytes": 658519
+      "sha256": "645b28d4573822cf17368a2b56bbb1c409910557a055f9bdbab2c37381069624",
+      "bytes": 663675
     },
     {
       "file": "screenshots/apk/02-dining-recommended.png",
       "width": 2560,
       "height": 1440,
-      "sha256": "cce9244895ed066fd2be985bd61d0012066b33e13ae39b566784fd24d3bb2b58",
-      "bytes": 665825
+      "sha256": "dac23ee3a3badfe0252a2009737987906b895c761b86711065c2098f03f22cef",
+      "bytes": 671777
     },
     {
       "file": "screenshots/apk/03-dining-review.png",
       "width": 2560,
       "height": 1440,
-      "sha256": "952a6bca97e7cd9a53e4fa0d0fb4797fadb8805a2f35f3c774f5a216e8b07876",
-      "bytes": 640876
+      "sha256": "46f96d8ffe799c78d4d98b55242135317cc6a0e37c37a6968d7279b24ab19878",
+      "bytes": 640176
     },
     {
       "file": "screenshots/apk/04-dining-order-tracking.png",
       "width": 2560,
       "height": 1440,
-      "sha256": "7b146addf795a5519aa432d046dfd242b4cd8924443142ac8d5931d183a3a736",
-      "bytes": 646417
+      "sha256": "8f1902ece22498226ec8a610a7b4b9c810edba8d9ee70cc4d07e8f25455b5d5a",
+      "bytes": 646991
     },
     {
       "file": "screenshots/apk/05-access-comparison.png",
       "width": 2560,
       "height": 1440,
-      "sha256": "5584ceb86a8ab1840a5d035ee5875c6f4057f2f392c7c3f20d7dc2fec43ad138",
-      "bytes": 679036
+      "sha256": "a8770dc7bba3b68fd5f29f81554331afaffb24e928fcb38f0d1fd9dffe6b3f77",
+      "bytes": 676385
     },
     {
       "file": "screenshots/apk/06-access-a2-unavailable-alternative.png",
       "width": 2560,
       "height": 1440,
-      "sha256": "3248ac414b4b1a245a6e4bd799f47bcace6c89b70a4edf13d61d3ce905f6e96d",
-      "bytes": 679111
+      "sha256": "c659484bc2cd1ce70f9cc55fa44beda9aa95e25d81c6c2d1b4dec0123a3923a0",
+      "bytes": 681154
     },
     {
       "file": "screenshots/apk/07-access-entrance-confirmed.png",
       "width": 2560,
       "height": 1440,
-      "sha256": "1310a756f8128379776dd5a4611f7db4b1f93de2111c513f064880d18483f6b9",
-      "bytes": 675553
+      "sha256": "122d498a1ff30821c38b97ba20f6ad418252ec3b814ceca28526e1b31741d560",
+      "bytes": 679263
     },
     {
-      "file": "screenshots/apk/08-handoff-location-card.png",
+      "file": "screenshots/apk/08-handoff-photos-attached.png",
       "width": 2560,
       "height": 1440,
-      "sha256": "e6032bbcfafc3901c17ca99d6386427ad9f237ade05b6eed277ef6e6569bd737",
-      "bytes": 637323
+      "sha256": "2dad7a7014aa15bb734861e628e1fce0aa670b3f5863b61163980f9c95e130d3",
+      "bytes": 1281092
+    },
+    {
+      "file": "screenshots/apk/09-handoff-location-card.png",
+      "width": 2560,
+      "height": 1440,
+      "sha256": "19c1f65d7330a42450d91f4007d047f6fbc3ea21f23c5b6ca9715ed72a1f67b0",
+      "bytes": 1274201
     }
   ],
   "result": "PASS"
