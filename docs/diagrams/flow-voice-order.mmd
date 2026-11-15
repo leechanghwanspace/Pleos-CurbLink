@@ -1,0 +1,17 @@
+sequenceDiagram
+  actor D as 운전자
+  participant UI as 화면
+  participant VM as ViewModel
+  participant R as 판단 규칙
+  participant ST as 저장소
+  D->>UI: "메뉴 추천해줘"
+  UI->>VM: 음성 입력
+  VM->>R: 남은 시간으로 추천
+  R-->>VM: 도착 맞춤 메뉴
+  VM-->>D: 메뉴 · 금액 안내 (TTS)
+  D->>UI: "주문해줘"
+  UI->>VM: 음성 입력
+  VM->>R: 확정 조건 확인
+  R-->>VM: 주문 확정
+  VM->>ST: 여정 · 주문 저장
+  VM-->>UI: 예약 → 조리 → 배달 → 도착

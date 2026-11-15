@@ -116,45 +116,13 @@ Pleos Connect v2.1.0 에뮬레이터에서 실제 APK를 실행해 촬영한 앱
 
 ## 아키텍처와 데이터 모델
 
+> 다이어그램은 PC·모바일 앱 어디서나 보이도록 이미지로 넣었습니다. 원본(Mermaid)은 [`docs/diagrams/`](docs/diagrams/)에 있습니다.
+
 ### 아키텍처 구조도
 
 앱은 **연결 → 상태 → 판단 규칙 → 화면** 네 계층으로 나뉩니다. Pleos 차량 서비스와는 `PlatformConnections` 한 곳에서만 연결하며, 차량을 제어하지 않고 **읽기만** 합니다.
 
-```mermaid
----
-config:
-  flowchart:
-    wrappingWidth: 400
----
-flowchart LR
-  subgraph EXT["Pleos Connect"]
-    direction TB
-    CS["CarService<br/>기어 · 속도 · UX 제한"]
-    NV["NaviHelper 3.0.5<br/>목적지 · 남은 시간"]
-  end
-  subgraph APP["CurbLink Drive 앱"]
-    direction TB
-    PC["PlatformConnections<br/>읽기 전용 · 1초 주기"]
-    VM["MobilityViewModel<br/>단일 상태 StateFlow"]
-    RU["판단 규칙<br/>차선 · 하차 · 여정"]
-    UI["MobilityApp<br/>Compose 화면 4개"]
-    JS[("JourneyStore<br/>여정 · 주문 저장")]
-  end
-  subgraph SYS["Android 시스템"]
-    direction TB
-    VO["음성 인식 · TTS"]
-    PH["사진 선택기 · 공유"]
-  end
-  CS --> PC
-  NV --> PC
-  PC --> VM
-  VM <--> RU
-  VM --> UI
-  UI -- "버튼 · 음성" --> VM
-  VM <--> JS
-  UI <--> VO
-  UI <--> PH
-```
+![아키텍처 구조도: Pleos Connect, CurbLink Drive 앱 계층, Android 시스템](docs/diagrams/architecture.png)
 
 | 계층 | 구성 요소 | 하는 일 |
 |---|---|---|
@@ -173,44 +141,11 @@ flowchart LR
 
 **① 차량 상태 반영 (1초마다)** — 차량 상태가 바뀌면 조건을 다시 평가하고 화면을 갱신합니다.
 
-```mermaid
-sequenceDiagram
-  participant CS as Pleos 서비스
-  participant PC as 연결 계층
-  participant VM as ViewModel
-  participant R as 판단 규칙
-  participant UI as 화면
-  loop 1초마다
-    CS->>PC: 기어 · 속도 · 남은 시간
-    PC->>VM: 차량 · 경로 관측값
-    VM->>R: 조건 재평가
-    R-->>VM: 새 상태 · 추천 차선
-    VM-->>UI: 화면 갱신
-  end
-  Note over VM,R: 조건이 바뀌면<br/>하차 · 공유 승인 폐기
-```
+![처리 흐름도: 1초마다 차량 상태 반영](docs/diagrams/flow-vehicle-state.png)
 
 **② 주행 중 음성 주문** — 주행 중에는 터치가 잠기고, 명확한 확정 문장일 때만 주문을 받습니다.
 
-```mermaid
-sequenceDiagram
-  actor D as 운전자
-  participant UI as 화면
-  participant VM as ViewModel
-  participant R as 판단 규칙
-  participant ST as 저장소
-  D->>UI: "메뉴 추천해줘"
-  UI->>VM: 음성 입력
-  VM->>R: 남은 시간으로 추천
-  R-->>VM: 도착 맞춤 메뉴
-  VM-->>D: 메뉴 · 금액 안내 (TTS)
-  D->>UI: "주문해줘"
-  UI->>VM: 음성 입력
-  VM->>R: 확정 조건 확인
-  R-->>VM: 주문 확정
-  VM->>ST: 여정 · 주문 저장
-  VM-->>UI: 예약 → 조리 → 배달 → 도착
-```
+![처리 흐름도: 주행 중 음성 주문](docs/diagrams/flow-voice-order.png)
 
 ### ERD — 데이터 모델
 
@@ -218,96 +153,11 @@ sequenceDiagram
 
 **① 여정 · 식사 · 하차**
 
-```mermaid
-erDiagram
-  MOBILITY_STATE ||--|| DEMO_PLACE : "목적지"
-  MOBILITY_STATE ||--o| DINING_ORDER : "진행 주문"
-  DINING_ORDER }o--|| DINING_MENU : "메뉴"
-  MOBILITY_STATE }o--o| ACCESS_BAY : "하차 지점"
-  ACCESS_BAY ||--o{ BAY_ASSESSMENT : "평가"
-  MOBILITY_STATE ||--|| JOURNEY_RECORD : "저장 · 복원"
-
-  MOBILITY_STATE {
-    string tripId PK
-    string destinationId FK
-    enum purpose
-    enum phase
-    enum mealStep
-    string bayId FK
-    bool canEdit
-  }
-  DEMO_PLACE {
-    string id PK
-    string name
-    int etaSeconds
-  }
-  DINING_ORDER {
-    string id PK
-    string menuId FK
-    int dispatchAt
-  }
-  DINING_MENU {
-    string id PK
-    string name
-    int price
-    int prepSeconds
-  }
-  ACCESS_BAY {
-    string id PK
-    int walkMeters
-    double slopePercent
-    bool stepFree
-  }
-  BAY_ASSESSMENT {
-    string bayId FK
-    double cost
-    bool eligible
-  }
-  JOURNEY_RECORD {
-    string key PK
-    string orderId
-    string mealStep
-    string bay
-  }
-```
+![ERD: 여정·식사·하차](docs/diagrams/erd-journey.png)
 
 **② 차량 · 차선 관측**
 
-```mermaid
-erDiagram
-  VEHICLE_OBSERVATION }o--|| MOBILITY_STATE : "차량 상태"
-  TRIP_OBSERVATION }o--|| MOBILITY_STATE : "경로 상태"
-  MOBILITY_STATE ||--o{ LANE_TRAFFIC : "차선 1~4"
-  MOBILITY_STATE ||--o| LANE_ADVICE : "추천 결과"
-
-  VEHICLE_OBSERVATION {
-    enum gear
-    double speedKph
-    long observedAtMs
-    bool uxRestricted
-  }
-  TRIP_OBSERVATION {
-    int remainingSeconds
-    int remainingMeters
-    bool arrived
-  }
-  MOBILITY_STATE {
-    string tripId PK
-    int currentLane
-    int remainingSeconds
-  }
-  LANE_TRAFFIC {
-    int lane PK
-    int queue
-    double signalWait
-    bool closed
-  }
-  LANE_ADVICE {
-    int lane
-    string nextAction
-    string reason
-  }
-```
+![ERD: 차량·차선 관측](docs/diagrams/erd-observation.png)
 
 | 구분 | 엔티티 | 출처 |
 |---|---|---|
@@ -352,47 +202,7 @@ erDiagram
 
 기능을 브랜치별로 나눠 개발하고, 검증한 뒤 `main`에 합쳤습니다. 지난 브랜치는 지우지 않고 당시 상태 그대로 보존합니다.
 
-```mermaid
-gitGraph
-  commit id: "초기 구조"
-  commit id: "안전 인터록·도메인"
-  commit id: "AAOS Compose UI"
-  branch "automation/collaboration-setup"
-  commit id: "협업 체계"
-  checkout main
-  merge "automation/collaboration-setup"
-  branch "automation/care-pickup"
-  commit id: "배려 픽업·도움 인계"
-  checkout main
-  merge "automation/care-pickup"
-  branch "feature/simulator-bridge"
-  commit id: "시뮬레이터 브리지"
-  checkout main
-  merge "feature/simulator-bridge"
-  commit id: "0.2 네이티브 재구성"
-  branch "codex/simulation-app-redesign"
-  commit id: "Pleos SDK 연동"
-  branch integration
-  commit id: "0.5 브랜치 체계"
-  branch simulation
-  commit id: "시뮬레이션 안내"
-  checkout integration
-  branch apk
-  commit id: "APK 설치 안내"
-  checkout integration
-  commit id: "0.5.1 수정"
-  commit id: "0.5.2 도착 복구"
-  checkout simulation
-  merge integration
-  checkout apk
-  merge integration
-  checkout main
-  merge integration id: "0.5.2 프리뷰 병합"
-  checkout integration
-  commit id: "스킬·제출 자료"
-  checkout main
-  merge integration id: "PR #1"
-```
+![브랜치 구성과 병합 이력](docs/diagrams/branch-history.png)
 
 그림은 흐름을 보여 주려고 단순화했습니다. 10월 25~27일 브랜치 세 개는 실제로는 별도 병합 커밋 없이 `main`에 그대로 이어 붙였습니다(fast-forward).
 
