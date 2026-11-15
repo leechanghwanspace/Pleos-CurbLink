@@ -214,7 +214,7 @@ gitGraph
 | 날짜 | `main` 커밋 | 내용 |
 |---|---|---|
 | 10-31 | `2c4f295` | `integration`의 0.5.2 프리뷰 병합 (도착 복구 기능, 검증 캡처) |
-| 11-15 | `19bf34f` | [PR #1](https://github.com/leechanghwanspace/Pleos-CurbLink/pull/1) — 프로젝트 스킬, release APK, 시연 영상·스크린샷, 제출 정보 |
+| 11-15 | `19bf34f` | `integration` 병합 (PR #1) — release APK, 방향별 사진 첨부, 시연 영상·스크린샷, 제출 정보 |
 
 ## 개발자용 실행과 빌드
 
