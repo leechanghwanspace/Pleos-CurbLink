@@ -206,17 +206,17 @@ gitGraph
 
 | 브랜치 | 날짜 | 개발 내용 | `main` 반영 |
 |---|---|---|---|
-| [`automation/collaboration-setup`](../../tree/automation/collaboration-setup) | 10-25 | 작업 범위를 나눠 구현·검토하는 개발 절차와 최종 검토 | fast-forward (`b42e688`) |
-| [`automation/care-pickup`](../../tree/automation/care-pickup) | 10-25 | 배려가 필요한 승객 픽업 프로필과 도움 인계 | fast-forward (`d1da3f4`) |
-| [`feature/simulator-bridge`](../../tree/feature/simulator-bridge) | 10-27 | 안드로이드 데모 앱과 로컬 차량 시뮬레이터 연결 | fast-forward (`4ee9497`) |
-| [`codex/simulation-app-redesign`](../../tree/codex/simulation-app-redesign) | 10-30 | 실제 Pleos CarService·NaviHelper 연동, 차량 화면 배율 조정, 시뮬레이션-앱 일치 계획 | `integration`을 거쳐 병합 (`2c4f295`) |
+| [`automation/collaboration-setup`](../../tree/automation/collaboration-setup) | 10-25 | 작업 범위를 나눠 구현·검토하는 개발 절차와 최종 검토 | fast-forward (`c793d75`) |
+| [`automation/care-pickup`](../../tree/automation/care-pickup) | 10-25 | 배려가 필요한 승객 픽업 프로필과 도움 인계 | fast-forward (`4af3c98`) |
+| [`feature/simulator-bridge`](../../tree/feature/simulator-bridge) | 10-27 | 안드로이드 데모 앱과 로컬 차량 시뮬레이터 연결 | fast-forward (`2dca418`) |
+| [`codex/simulation-app-redesign`](../../tree/codex/simulation-app-redesign) | 10-30 | 실제 Pleos CarService·NaviHelper 연동, 차량 화면 배율 조정, 시뮬레이션-앱 일치 계획 | `integration`을 거쳐 병합 (`692d492`) |
 
 ### 병합 기록
 
 | 날짜 | `main` 커밋 | 내용 |
 |---|---|---|
-| 10-31 | `2c4f295` | `integration`의 0.5.2 프리뷰 병합 (도착 복구 기능, 검증 캡처) |
-| 11-15 | `19bf34f` | `integration` 병합 (PR #1) — release APK, 방향별 사진 첨부, 시연 영상·스크린샷, 제출 정보 |
+| 10-31 | `692d492` | `integration`의 0.5.2 프리뷰 병합 (도착 복구 기능, 검증 캡처) |
+| 11-15 | `8061d01` | `integration` 병합 (PR #1) — release APK, 방향별 사진 첨부, 시연 영상·스크린샷, 제출 정보 |
 
 ## 오픈소스 사용 내역
 
