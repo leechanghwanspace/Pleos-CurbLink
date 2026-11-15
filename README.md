@@ -1,4 +1,4 @@
-> **apk — 차량 앱 설치·실행 안내** · 공모전 제출 기준은 [`main`](https://github.com/leechanghwanspace/Pleos-CurbLink/tree/main)입니다.
+> **apk — 차량 앱 설치·실행 안내** · 공모전 제출 기준은 [`main`](../../tree/main)입니다.
 
 # CurbLink Drive — apk
 
@@ -8,7 +8,7 @@
 
 | 파일 | 설명 |
 |---|---|
-| [`apk/이창환_CurbLink_release.apk`](apk/이창환_CurbLink_release.apk) · [SHA-256](apk/이창환_CurbLink_release.apk.sha256) | **제출용 release 빌드** (현재 로컬 debug 키 서명). 시뮬레이션·시험 코드 미포함, v2 서명, 16KB 정렬 통과 |
+| [`apk/CurbLink_CurbLink_release.apk`](apk/CurbLink_CurbLink_release.apk) · [SHA-256](apk/CurbLink_CurbLink_release.apk.sha256) | **제출용 release 빌드** (현재 로컬 debug 키 서명). 시뮬레이션·시험 코드 미포함, v2 서명, 16KB 정렬 통과 |
 | [release APK 시연 영상](submission/video/curblink-apk-demo.mp4) (2분 49초, 2560×1440) | Pleos Connect v2.1.0 에뮬레이터, 실제 차량 연결(P단)에서 식사 예약 → 하차 대안 → 안전 확인 → 방향별 주변 이미지 첨부 → 위치 카드 |
 | [스크린샷](submission/README.md#release-apk-화면-pleos-connect-v210-25601440) | release APK 화면 9장. 현장 인계의 주변 이미지는 [3D로 렌더링한 예시](submission/example-photos/README.md)이며 실제 사진이 아님 |
 
@@ -24,7 +24,7 @@
 ## 설치와 실행
 
 ```powershell
-adb install -r apk/이창환_CurbLink_release.apk
+adb install -r apk/CurbLink_CurbLink_release.apk
 ```
 
 앱 목록에서 **CurbLink Drive**를 실행합니다. 이미 다른 서명으로 설치되어 있으면 앱 데이터를 지우기 전에 인증서를 먼저 확인하세요.
@@ -66,4 +66,4 @@ CarService·NaviHelper는 에뮬레이터의 실제 서비스에 연결합니다
 | 10-30 ~ 10-31 | `integration`의 0.5.1·0.5.2 변경을 받아 APK 링크·캡처 갱신 |
 | 11-15 | `main`과 같은 소스로 맞추고 제출용 release APK 기준으로 README 정리 |
 
-소스는 `main`과 같고 README만 다릅니다. 이전 버전 APK(0.2~0.5.2 프리뷰)는 [`release/`](release/)에 보존합니다. 전체 브랜치 흐름은 [main README의 브랜치 구성과 개발 이력](https://github.com/leechanghwanspace/Pleos-CurbLink/blob/main/README.md#브랜치-구성과-개발-이력)에 있습니다.
+소스는 `main`과 같고 README만 다릅니다. 이전 버전 APK(0.2~0.5.2 프리뷰)는 [`release/`](release/)에 보존합니다. 전체 브랜치 흐름은 [main README의 브랜치 구성과 개발 이력](../../blob/main/README.md#브랜치-구성과-개발-이력)에 있습니다.
