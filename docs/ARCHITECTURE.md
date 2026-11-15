@@ -5,6 +5,11 @@
 ## 전체 구성
 
 ```mermaid
+---
+config:
+  flowchart:
+    wrappingWidth: 400
+---
 flowchart LR
   subgraph Pleos["Pleos Connect"]
     direction TB
@@ -46,6 +51,11 @@ flowchart LR
 ## 안전 경계
 
 ```mermaid
+---
+config:
+  flowchart:
+    wrappingWidth: 400
+---
 flowchart TD
   OBS["차량 관측값<br/>기어 · 속도 · UX 제한"] --> V{"관측값이<br/>유효한가?"}
   V -->|아니오| LOCK["모든 조작 잠금<br/>추천 보류"]
