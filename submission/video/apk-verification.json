@@ -1,0 +1,110 @@
+{
+  "source": "release APK on Pleos Connect emulator; real CarService/NaviHelper readings, vehicle parked (P)",
+  "notInjected": "no TEST vehicle/lane observations; driving lane guidance not exercised in this video",
+  "sampleData": "stores, menus, facility bays and order are sample data; nothing is sent or paid",
+  "device": {
+    "model": "Connect on x86_64 emulator",
+    "android": "14",
+    "display": "Physical size: 2560x1440",
+    "density": "Physical density: 160"
+  },
+  "testLocation": {
+    "lon": "126.9780",
+    "lat": "37.5665",
+    "note": "emulator geo fix test coordinate"
+  },
+  "apk": {
+    "file": "apk/CurbLink_CurbLink_release.apk",
+    "sha256": "25c656ca6a0574be9b7742476a6ba701d635bde359e7493b52d9a9279af71ed3"
+  },
+  "video": {
+    "file": "video/curblink-apk-demo.mp4",
+    "capture": "adb shell screenrecord at 2560x1440, re-encoded with ffmpeg to 1920x1080 H.264 (crf 24) for repository size; no cuts or overlays",
+    "durationSeconds": 124.4,
+    "size": {
+      "width": 1920,
+      "height": 1080
+    },
+    "bytes": 2513811,
+    "sha256": "989bf4d2520805264d052025912f7005de08fe9ed52eba181700e5accd2a16ff",
+    "originalSha256": "176619792b000b5cb27d7a939dc0a9d8c8fa016c9d52c960e475c646da1abe27",
+    "originalKeptLocally": "work/submission-video (not committed)"
+  },
+  "steps": [
+    "02  도착 맞춤 식사",
+    "현재 위치 다시 확인",
+    "menu: 닭구이 덮밥",
+    "확인 · 견본 주문 예약",
+    "03  편안한 하차",
+    "A2 · 이 지점 이용 불가",
+    "choose A-3",
+    "정차 후 도착 확인",
+    "switch on: 문 개방 공간 확인",
+    "switch on: 램프·리프트 준비 확인",
+    "switch on: 직원 지원 확인",
+    "주변 확인 · 하차 안내 승인",
+    "입구 도착 확인",
+    "04  현장 인계",
+    "현재 GPS 다시 확인",
+    "이 위치와 사진을 확인했어요"
+  ],
+  "captures": [
+    {
+      "file": "screenshots/apk/01-arrival-connected.png",
+      "width": 2560,
+      "height": 1440,
+      "sha256": "cdeb0c2db7c5d6b62bccc992c44b2eae4662117a5bced061dabba5e041260c4a",
+      "bytes": 658519
+    },
+    {
+      "file": "screenshots/apk/02-dining-recommended.png",
+      "width": 2560,
+      "height": 1440,
+      "sha256": "cce9244895ed066fd2be985bd61d0012066b33e13ae39b566784fd24d3bb2b58",
+      "bytes": 665825
+    },
+    {
+      "file": "screenshots/apk/03-dining-review.png",
+      "width": 2560,
+      "height": 1440,
+      "sha256": "952a6bca97e7cd9a53e4fa0d0fb4797fadb8805a2f35f3c774f5a216e8b07876",
+      "bytes": 640876
+    },
+    {
+      "file": "screenshots/apk/04-dining-order-tracking.png",
+      "width": 2560,
+      "height": 1440,
+      "sha256": "7b146addf795a5519aa432d046dfd242b4cd8924443142ac8d5931d183a3a736",
+      "bytes": 646417
+    },
+    {
+      "file": "screenshots/apk/05-access-comparison.png",
+      "width": 2560,
+      "height": 1440,
+      "sha256": "5584ceb86a8ab1840a5d035ee5875c6f4057f2f392c7c3f20d7dc2fec43ad138",
+      "bytes": 679036
+    },
+    {
+      "file": "screenshots/apk/06-access-a2-unavailable-alternative.png",
+      "width": 2560,
+      "height": 1440,
+      "sha256": "3248ac414b4b1a245a6e4bd799f47bcace6c89b70a4edf13d61d3ce905f6e96d",
+      "bytes": 679111
+    },
+    {
+      "file": "screenshots/apk/07-access-entrance-confirmed.png",
+      "width": 2560,
+      "height": 1440,
+      "sha256": "1310a756f8128379776dd5a4611f7db4b1f93de2111c513f064880d18483f6b9",
+      "bytes": 675553
+    },
+    {
+      "file": "screenshots/apk/08-handoff-location-card.png",
+      "width": 2560,
+      "height": 1440,
+      "sha256": "e6032bbcfafc3901c17ca99d6386427ad9f237ade05b6eed277ef6e6569bd737",
+      "bytes": 637323
+    }
+  ],
+  "result": "PASS"
+}
