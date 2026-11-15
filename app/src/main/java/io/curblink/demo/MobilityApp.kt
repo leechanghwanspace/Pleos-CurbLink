@@ -4,12 +4,16 @@ import android.Manifest
 import android.content.ClipData
 import android.content.Intent
 import android.content.pm.PackageManager
+import android.graphics.ImageDecoder
 import android.net.Uri
 import android.speech.RecognizerIntent
+import android.util.Log
 import android.speech.tts.TextToSpeech
 import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -25,9 +29,12 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.ImageBitmap
+import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
@@ -35,6 +42,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import java.util.Locale
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 
 private val Paper=Color(0xFFF1F4F4)
 private val Ink=Color(0xFF152E35)
@@ -72,9 +81,20 @@ private val Shape=RoundedCornerShape(24.dp)
     }
     val photos=s.handoffPhotoUris.map(Uri::parse)
     var photoPickerTrip by remember { mutableStateOf<String?>(null) }
-    val picker=rememberLauncherForActivityResult(ActivityResultContracts.OpenMultipleDocuments()){uris->
+    // System photo picker: Pleos routes OPEN_DOCUMENT to a no-op car stub, but provides PICK_IMAGES.
+    val picker=rememberLauncherForActivityResult(ActivityResultContracts.PickMultipleVisualMedia(4)){uris->
         vm.attachPhotos(uris.map(Uri::toString),photoPickerTrip)
         photoPickerTrip=null
+    }
+    var photoSlot by remember { mutableStateOf<Pair<Int,String>?>(null) }
+    val slotPicker=rememberLauncherForActivityResult(ActivityResultContracts.PickVisualMedia()){uri->
+        photoSlot?.let{(index,trip)->vm.attachPhotoAt(index,uri?.toString(),trip)}
+        photoSlot=null
+    }
+    fun pickSlot(index:Int){
+        photoSlot=index to s.tripId
+        try{slotPicker.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))}
+        catch(_:Exception){photoSlot=null;vm.note("사진 선택기를 열지 못했습니다. 기존 첨부는 유지합니다. 정차 후 사진 앱을 확인하고 다시 시도해 주세요.")}
     }
     fun share(){
         val current=vm.currentShareState() ?: return
@@ -109,7 +129,7 @@ private val Shape=RoundedCornerShape(24.dp)
                         0->Arrival(s,vm,wide)
                         1->Dining(s,vm,wide,::gps,::listen)
                         2->Access(s,vm,wide)
-                        else->Handoff(s,vm,wide,photos.size,::gps,{photoPickerTrip=s.tripId;try{picker.launch(arrayOf("image/*"))}catch(_:Exception){photoPickerTrip=null;vm.note("사진 선택기를 열지 못했습니다. 기존 첨부는 유지합니다. 정차 후 사진 앱을 확인하고 다시 시도해 주세요.")}},::share)
+                        else->Handoff(s,vm,wide,photos,::pickSlot,::gps,{photoPickerTrip=s.tripId;try{picker.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))}catch(_:Exception){photoPickerTrip=null;vm.note("사진 선택기를 열지 못했습니다. 기존 첨부는 유지합니다. 정차 후 사진 앱을 확인하고 다시 시도해 주세요.")}},::share)
                     }
                 }
                 Row(Modifier.fillMaxWidth().background(Color.White,RoundedCornerShape(18.dp)).padding(12.dp),verticalAlignment=Alignment.CenterVertically,horizontalArrangement=Arrangement.spacedBy(12.dp)){
@@ -306,12 +326,19 @@ private val Shape=RoundedCornerShape(24.dp)
     }
 })}
 
-@Composable private fun Handoff(s:MobilityState,vm:MobilityViewModel,wide:Boolean,count:Int,gps:()->Unit,attach:()->Unit,share:()->Unit){Split(wide,{
+@Composable private fun Handoff(s:MobilityState,vm:MobilityViewModel,wide:Boolean,photos:List<Uri>,pickSlot:(Int)->Unit,gps:()->Unit,attach:()->Unit,share:()->Unit){val count=photos.size;Split(wide,{
     Panel("주소 대신, 눈에 보이는 위치","VISUAL HANDOFF"){
         Copy("큰 건물이나 정확한 주소가 없어도 현재 GPS와 주변 사진을 함께 공유합니다.")
-        Row(horizontalArrangement=Arrangement.spacedBy(10.dp)){listOf("전방","후방").forEach{CameraSlot(it,Modifier.weight(1f))}}
-        Row(horizontalArrangement=Arrangement.spacedBy(10.dp)){listOf("좌측","우측").forEach{CameraSlot(it,Modifier.weight(1f))}}
-        Copy("차량 어라운드뷰 제공자 미연결. 실제 촬영 이미지는 사진 선택으로 첨부할 수 있습니다.")
+        JourneyTransitions.handoffSlots.withIndex().chunked(2).forEach{pair->Row(horizontalArrangement=Arrangement.spacedBy(10.dp)){pair.forEach{(index,label)->
+            val hint=when{
+                !s.canEdit->"정차 후 사진 선택"
+                index<count->"첨부 사진 · 눌러서 바꾸기"
+                index==count->"눌러서 $label 사진 선택"
+                else->"앞 방향 사진을 먼저 선택"
+            }
+            CameraSlot(label,photos.getOrNull(index),hint,s.canEdit&&index<=count,{pickSlot(index)},Modifier.weight(1f))
+        }}}
+        Copy("차량 어라운드뷰 제공자 미연결. 각 칸을 눌러 방향별 사진을 고르거나, 아래 버튼으로 여러 장을 한 번에 첨부합니다.")
         Primary("주변 사진 선택 · 최대 4장 ($count/4)",s.canEdit,attach)
         if(count>0)OutlinedButton(onClick=vm::clearPhotos,enabled=s.canEdit){Text("첨부 사진 모두 제거")}
     }
@@ -328,13 +355,40 @@ private val Shape=RoundedCornerShape(24.dp)
         Copy("공유창에서 받는 사람을 직접 선택합니다. 위치가 바뀌면 다시 확인해야 합니다.")
     }
 })}
-@Composable private fun CameraSlot(label:String,modifier:Modifier){
-    Column(modifier.background(Paper,RoundedCornerShape(16.dp)).padding(16.dp),verticalArrangement=Arrangement.spacedBy(8.dp)){
+private sealed interface SlotPhoto { data object Loading:SlotPhoto; data object Failed:SlotPhoto; data class Ready(val image:ImageBitmap):SlotPhoto }
+
+/** Decodes a user-picked photo off the main thread, downsampled for a slot thumbnail. */
+@Composable private fun rememberSlotPhoto(uri:Uri?):SlotPhoto?{
+    val context=LocalContext.current
+    var state by remember(uri){mutableStateOf<SlotPhoto?>(if(uri==null)null else SlotPhoto.Loading)}
+    LaunchedEffect(uri){if(uri!=null)state=withContext(Dispatchers.IO){decodeSlotPhoto(context.contentResolver,uri)}}
+    return state
+}
+
+private fun decodeSlotPhoto(resolver:android.content.ContentResolver,uri:Uri):SlotPhoto=runCatching{
+    ImageDecoder.decodeBitmap(ImageDecoder.createSource(resolver,uri)){decoder,info,_->
+        val scale=minOf(1f,960f/info.size.width)
+        decoder.setTargetSize((info.size.width*scale).toInt().coerceAtLeast(1),(info.size.height*scale).toInt().coerceAtLeast(1))
+        decoder.allocator=ImageDecoder.ALLOCATOR_SOFTWARE
+    }.asImageBitmap()
+}.fold({SlotPhoto.Ready(it)}){Log.w("CurbLinkPhoto","Photo decode failed: ${it.javaClass.simpleName}");SlotPhoto.Failed}
+
+@Composable private fun CameraSlot(label:String,uri:Uri?,hint:String,enabled:Boolean,onClick:()->Unit,modifier:Modifier){
+    val photo=rememberSlotPhoto(uri)
+    Column(modifier.clip(RoundedCornerShape(16.dp)).background(Paper).clickable(enabled=enabled,onClickLabel="$label 사진 선택",onClick=onClick).padding(16.dp),verticalArrangement=Arrangement.spacedBy(8.dp)){
         Text(label,color=Ink,fontSize=18.sp,fontWeight=FontWeight.Bold)
-        Canvas(Modifier.fillMaxWidth().height(64.dp)){
-            val path=Path().apply{moveTo(size.width*.2f,size.height);lineTo(size.width*.43f,0f);lineTo(size.width*.57f,0f);lineTo(size.width*.8f,size.height)}
-            drawPath(path,Line,style=Stroke(width=3f));drawLine(Line,Offset(size.width*.5f,0f),Offset(size.width*.5f,size.height),2f)
+        val frame=Modifier.fillMaxWidth().aspectRatio(16f/10f).clip(RoundedCornerShape(12.dp))
+        when(photo){
+            is SlotPhoto.Ready->Image(photo.image,"$label 첨부 사진",frame,contentScale=ContentScale.Crop)
+            else->Canvas(frame.semantics{contentDescription="$label 사진 없음"}){
+                val path=Path().apply{moveTo(size.width*.2f,size.height);lineTo(size.width*.43f,size.height*.3f);lineTo(size.width*.57f,size.height*.3f);lineTo(size.width*.8f,size.height)}
+                drawPath(path,Line,style=Stroke(width=3f));drawLine(Line,Offset(size.width*.5f,size.height*.3f),Offset(size.width*.5f,size.height),2f)
+            }
         }
-        Text("카메라 연결 대기",color=Muted,fontSize=12.sp)
+        Text(when(photo){
+            SlotPhoto.Loading->"사진 불러오는 중"
+            SlotPhoto.Failed->"사진을 불러오지 못했습니다 · 다시 선택해 주세요"
+            else->hint
+        },color=if(photo is SlotPhoto.Failed)Amber else if(enabled&&photo==null)Teal else Muted,fontSize=13.sp,fontWeight=if(enabled&&photo==null)FontWeight.SemiBold else FontWeight.Normal)
     }
 }
