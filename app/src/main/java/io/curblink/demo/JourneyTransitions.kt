@@ -49,6 +49,25 @@ object JourneyTransitions {
             note="주변 사진을 첨부했습니다. 현재 위치와 사진을 확인한 뒤 공유해 주세요.")
     }
 
+    /** Handoff photo directions, in the order the location card lists them. */
+    val handoffSlots = listOf("전방", "후방", "좌측", "우측")
+
+    /** Picks or replaces the photo for one direction. Directions fill in order so the list index is the slot. */
+    fun attachPhotoAt(s: MobilityState, index: Int, uri: String?, tripId: String?): MobilityState {
+        val photos = s.handoffPhotoUris
+        return when {
+            !s.canEdit || tripId != s.tripId -> s.copy(note="여정 또는 차량 상태가 바뀌었습니다. 정차 후 사진을 다시 선택해 주세요.")
+            uri == null -> s.copy(note="사진 선택을 취소했습니다. 기존 첨부는 유지합니다.")
+            index !in 0..minOf(photos.size, handoffSlots.lastIndex) ->
+                s.copy(note="${handoffSlots[photos.size.coerceAtMost(handoffSlots.lastIndex)]} 사진부터 순서대로 선택해 주세요.")
+            photos.withIndex().any { (i, p) -> p == uri && i != index } ->
+                s.copy(note="이미 다른 방향에 첨부한 사진입니다. 다른 사진을 선택해 주세요.")
+            else -> s.copy(handoffPhotoUris = if (index < photos.size) photos.toMutableList().also { it[index] = uri } else photos + uri,
+                locationShared = false, confirmedLocation = null,
+                note = "${handoffSlots[index]} 사진을 첨부했습니다. 현재 위치와 사진을 확인한 뒤 공유해 주세요.")
+        }
+    }
+
     fun selectBay(s: MobilityState, bay: AccessBay): MobilityState {
         if(!s.canEdit || !MobilityRules.assess(s.needs,listOf(bay),s.unavailableBayIds).first().eligible)
             return s.copy(note="하차 조건에 맞는 지점을 정차 후 선택해 주세요.")
