@@ -142,6 +142,34 @@ class JourneyTransitionTest {
         assertFalse(result.canShareLocation)
         assertTrue(JourneyTransitions.newTrip(result).handoffPhotoUris.isEmpty())
     }
+    @Test fun slotPhotosFillInDirectionOrderAndReplaceInPlace() {
+        val state=MobilityState(gear=VehicleGear.P)
+        val front=JourneyTransitions.attachPhotoAt(state,0,"content://front",state.tripId)
+        val rear=JourneyTransitions.attachPhotoAt(front,1,"content://rear",state.tripId)
+        assertEquals(listOf("content://front","content://rear"),rear.handoffPhotoUris)
+        val replaced=JourneyTransitions.attachPhotoAt(rear,0,"content://front-2",state.tripId)
+        assertEquals(listOf("content://front-2","content://rear"),replaced.handoffPhotoUris)
+    }
+    @Test fun slotPhotoCannotSkipAnEmptyDirectionOrRepeatAPhoto() {
+        val state=MobilityState(gear=VehicleGear.P,handoffPhotoUris=listOf("content://front"))
+        assertEquals(state.handoffPhotoUris,JourneyTransitions.attachPhotoAt(state,3,"content://right",state.tripId).handoffPhotoUris)
+        assertEquals(state.handoffPhotoUris,JourneyTransitions.attachPhotoAt(state,1,"content://front",state.tripId).handoffPhotoUris)
+        assertEquals(state.handoffPhotoUris,JourneyTransitions.attachPhotoAt(state,4,"content://extra",state.tripId).handoffPhotoUris)
+    }
+    @Test fun slotPhotoKeepsAttachmentsOnCancelAndRequiresReconfirmationOnChange() {
+        val state=MobilityState(gear=VehicleGear.P,handoffPhotoUris=listOf("content://front"))
+        val confirmed=state.copy(locationShared=true,confirmedLocation=state.locationKey)
+        val cancelled=JourneyTransitions.attachPhotoAt(confirmed,1,null,state.tripId)
+        assertEquals(state.handoffPhotoUris,cancelled.handoffPhotoUris)
+        assertTrue(cancelled.canShareLocation)
+        val changed=JourneyTransitions.attachPhotoAt(confirmed,1,"content://rear",state.tripId)
+        assertFalse(changed.canShareLocation)
+    }
+    @Test fun slotPhotoFromOldTripOrWhileDrivingIsRejected() {
+        val state=MobilityState(gear=VehicleGear.P,handoffPhotoUris=listOf("content://front"))
+        assertEquals(state.handoffPhotoUris,JourneyTransitions.attachPhotoAt(state,1,"content://rear","previous-trip").handoffPhotoUris)
+        assertEquals(state.handoffPhotoUris,JourneyTransitions.attachPhotoAt(state.copy(phase=DrivePhase.DRIVING),1,"content://rear",state.tripId).handoffPhotoUris)
+    }
     @Test fun resetDoesNotSilentlyDiscardAnActiveOrder() {
         val order=DiningOrder(MobilityCatalog.menus.first(),0,120,0)
         val state=MobilityState(gear=VehicleGear.P,order=order,mealStep=DiningStep.TRACK)
