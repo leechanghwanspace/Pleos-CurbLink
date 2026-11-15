@@ -1,0 +1,14 @@
+sequenceDiagram
+  participant CS as Pleos 서비스
+  participant PC as 연결 계층
+  participant VM as ViewModel
+  participant R as 판단 규칙
+  participant UI as 화면
+  loop 1초마다
+    CS->>PC: 기어 · 속도 · 남은 시간
+    PC->>VM: 차량 · 경로 관측값
+    VM->>R: 조건 재평가
+    R-->>VM: 새 상태 · 추천 차선
+    VM-->>UI: 화면 갱신
+  end
+  Note over VM,R: 조건이 바뀌면<br/>하차 · 공유 승인 폐기

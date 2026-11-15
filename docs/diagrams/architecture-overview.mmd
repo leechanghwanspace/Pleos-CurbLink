@@ -1,0 +1,30 @@
+---
+config:
+  flowchart:
+    wrappingWidth: 400
+---
+flowchart LR
+  subgraph Pleos["Pleos Connect"]
+    direction TB
+    CS["CarService<br/>기어 · 속도 · UX 제한"]
+    NV["NaviHelper 3.0.5<br/>목적지 · 남은 시간"]
+  end
+  subgraph App["CurbLink Drive 앱"]
+    direction TB
+    PC["PlatformConnections<br/>읽기 전용 어댑터"]
+    VM["MobilityViewModel<br/>단일 상태 StateFlow"]
+    R["판단 규칙<br/>차선 · 하차 · 여정"]
+    UI["MobilityApp<br/>Compose 화면 4개"]
+    ST[("JourneyStore<br/>여정 · 주문 저장")]
+  end
+  SYS["Android 시스템<br/>음성 · 사진 · 공유"]
+  SIM["웹 시뮬레이터<br/>개발용 검증 환경"]
+  CS --> PC
+  NV --> PC
+  PC --> VM
+  VM <--> R
+  VM --> UI
+  UI --> VM
+  VM <--> ST
+  UI <--> SYS
+  R -. "같은 규칙을<br/>JS로 비교" .- SIM
