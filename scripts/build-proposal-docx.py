@@ -14,7 +14,7 @@ from xml.sax.saxutils import escape
 
 ROOT = Path(__file__).resolve().parents[1]
 SRC = ROOT / 'docs/기획서_CurbLink_Drive.md'
-OUT = Path(sys.argv[1]) if len(sys.argv) > 1 else ROOT / 'submission/기획서_CurbLink_Drive_이창환.docx'
+OUT = Path(sys.argv[1]) if len(sys.argv) > 1 else ROOT / 'submission/기획서_CurbLink_Drive.docx'
 FONT = '맑은 고딕'
 TEAL, INK, MUTED, MINT, LINE = '007F73', '152E35', '536970', 'E2F4ED', 'C9D6D5'
 PAGE_W, PAGE_H, MARGIN = 11906, 16838, 1134          # A4, 2 cm margins (DXA)
@@ -60,7 +60,10 @@ def table(rows):
     ncol = len(header)
     weight = [max(6, max(len(re.sub(r'\*\*|`', '', r[i])) if i < len(r) else 0 for r in rows)) for i in range(ncol)]
     weight = [min(w, 60) for w in weight]
-    widths = [max(1500, int(TEXT_W * w / sum(weight))) for w in weight]
+    # each column gets a floor (wider for short label columns), then the rest is shared by content length
+    floor = min(1500, TEXT_W // ncol - 200)
+    spare = TEXT_W - floor * ncol
+    widths = [floor + int(spare * w / sum(weight)) for w in weight]
     widths[-1] += TEXT_W - sum(widths)
     grid = ''.join(f'<w:gridCol w:w="{w}"/>' for w in widths)
 
@@ -157,7 +160,7 @@ NUMBERING = f'''<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <w:num w:numId="1"><w:abstractNumId w:val="0"/></w:num></w:numbering>'''
 
 FOOTER = f'''<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
-<w:ftr {W}><w:p><w:pPr><w:pStyle w:val="Footer"/></w:pPr><w:r><w:t xml:space="preserve">CurbLink Drive 기획서 · 이창환 · </w:t></w:r>
+<w:ftr {W}><w:p><w:pPr><w:pStyle w:val="Footer"/></w:pPr><w:r><w:t xml:space="preserve">CurbLink Drive 기획서 · </w:t></w:r>
 <w:r><w:fldChar w:fldCharType="begin"/></w:r><w:r><w:instrText xml:space="preserve"> PAGE </w:instrText></w:r><w:r><w:fldChar w:fldCharType="separate"/></w:r>
 <w:r><w:t>1</w:t></w:r><w:r><w:fldChar w:fldCharType="end"/></w:r></w:p></w:ftr>'''
 
@@ -189,7 +192,7 @@ def build():
         'word/document.xml': document, 'word/styles.xml': STYLES, 'word/numbering.xml': NUMBERING, 'word/footer1.xml': FOOTER,
         'docProps/core.xml': '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><cp:coreProperties xmlns:cp="http://schemas.openxmlformats.org/package/2006/metadata/core-properties" '
             'xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:dcterms="http://purl.org/dc/terms/" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">'
-            f'<dc:title>CurbLink Drive 기획서</dc:title><dc:creator>이창환</dc:creator><cp:lastModifiedBy>이창환</cp:lastModifiedBy>'
+            f'<dc:title>CurbLink Drive 기획서</dc:title><dc:creator>CurbLink</dc:creator><cp:lastModifiedBy>CurbLink</cp:lastModifiedBy>'
             f'<dcterms:created xsi:type="dcterms:W3CDTF">{now}</dcterms:created><dcterms:modified xsi:type="dcterms:W3CDTF">{now}</dcterms:modified></cp:coreProperties>',
         'docProps/app.xml': '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Properties xmlns="http://schemas.openxmlformats.org/officeDocument/2006/extended-properties"><Application>CurbLink proposal builder</Application></Properties>',
     }

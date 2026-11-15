@@ -20,9 +20,9 @@
 
 | 항목 | 내용 |
 |---|---|
-| 앱 이름 | **CurbLink Drive** (개인 참가 · 이창환, 일반 부문) |
+| 앱 이름 | **CurbLink Drive** (개인 참가, 일반 부문) |
 | 한 줄 소개 | 주행 중 차량 상태를 읽어, 도착 이후의 식사·편안한 하차·현장 인계를 안전하게 미리 준비하는 차량용 앱 |
-| APK | [`apk/이창환_CurbLink_release.apk`](apk/이창환_CurbLink_release.apk) · [SHA-256](apk/이창환_CurbLink_release.apk.sha256) · release 빌드(현재 로컬 debug 키 서명) |
+| APK | [`apk/CurbLink_CurbLink_release.apk`](apk/CurbLink_CurbLink_release.apk) · [SHA-256](apk/CurbLink_CurbLink_release.apk.sha256) · release 빌드(현재 로컬 debug 키 서명) |
 | 시연 영상 | [release APK 실행 (2분 49초, 2560×1440)](submission/video/curblink-apk-demo.mp4) · [웹 주행 시뮬레이션 여섯 여정 (3분 48초, 앱 UI 아님 · 개발용 검증 환경)](submission/video/curblink-simulation-demo.mp4) |
 | 기획서 | [docs/기획서_CurbLink_Drive.md](docs/기획서_CurbLink_Drive.md) (접수 양식 원문) |
 | 스크린샷 | [제출용 스크린샷 모음](submission/README.md) (release APK 9장, 웹 시뮬레이션 9장). 현장 인계의 주변 이미지는 [3D로 렌더링한 예시](submission/example-photos/README.md)이며 실제 사진이 아님 |
@@ -43,7 +43,7 @@
 2. APK를 설치합니다.
 
    ```powershell
-   adb install -r apk/이창환_CurbLink_release.apk
+   adb install -r apk/CurbLink_CurbLink_release.apk
    ```
 
 3. 앱 목록에서 **CurbLink Drive**를 실행합니다.
@@ -195,19 +195,19 @@ gitGraph
 
 | 브랜치 | 역할 | 주요 위치 |
 |---|---|---|
-| [`main`](https://github.com/leechanghwanspace/Pleos-CurbLink/tree/main) | **공모전 제출 기준.** 최종 작업은 여기서 진행 | 전체 |
-| [`integration`](https://github.com/leechanghwanspace/Pleos-CurbLink/tree/integration) | 앱과 시뮬레이션 공통 규칙을 합쳐 검증하던 브랜치. 0.5 ~ 0.5.2와 제출 자료가 여기서 `main`으로 병합됨 | `app/` + `simulator/` + `release/` |
-| [`simulation`](https://github.com/leechanghwanspace/Pleos-CurbLink/tree/simulation) | 웹 주행 시뮬레이션 안내용 | `simulator/`, `captures/web/` |
-| [`apk`](https://github.com/leechanghwanspace/Pleos-CurbLink/tree/apk) | 차량 앱 설치·실행 안내용 | `app/`, `apk/`, `release/` |
+| [`main`](../../tree/main) | **공모전 제출 기준.** 최종 작업은 여기서 진행 | 전체 |
+| [`integration`](../../tree/integration) | 앱과 시뮬레이션 공통 규칙을 합쳐 검증하던 브랜치. 0.5 ~ 0.5.2와 제출 자료가 여기서 `main`으로 병합됨 | `app/` + `simulator/` + `release/` |
+| [`simulation`](../../tree/simulation) | 웹 주행 시뮬레이션 안내용 | `simulator/`, `captures/web/` |
+| [`apk`](../../tree/apk) | 차량 앱 설치·실행 안내용 | `app/`, `apk/`, `release/` |
 
 ### 보존한 기능 브랜치
 
 | 브랜치 | 날짜 | 개발 내용 | `main` 반영 |
 |---|---|---|---|
-| [`automation/collaboration-setup`](https://github.com/leechanghwanspace/Pleos-CurbLink/tree/automation/collaboration-setup) | 10-25 | 작업 범위를 나눠 구현·검토하는 개발 절차와 최종 검토 | fast-forward (`b42e688`) |
-| [`automation/care-pickup`](https://github.com/leechanghwanspace/Pleos-CurbLink/tree/automation/care-pickup) | 10-25 | 배려가 필요한 승객 픽업 프로필과 도움 인계 | fast-forward (`d1da3f4`) |
-| [`feature/simulator-bridge`](https://github.com/leechanghwanspace/Pleos-CurbLink/tree/feature/simulator-bridge) | 10-27 | 안드로이드 데모 앱과 로컬 차량 시뮬레이터 연결 | fast-forward (`4ee9497`) |
-| [`codex/simulation-app-redesign`](https://github.com/leechanghwanspace/Pleos-CurbLink/tree/codex/simulation-app-redesign) | 10-30 | 실제 Pleos CarService·NaviHelper 연동, 차량 화면 배율 조정, 시뮬레이션-앱 일치 계획 | `integration`을 거쳐 병합 (`2c4f295`) |
+| [`automation/collaboration-setup`](../../tree/automation/collaboration-setup) | 10-25 | 작업 범위를 나눠 구현·검토하는 개발 절차와 최종 검토 | fast-forward (`b42e688`) |
+| [`automation/care-pickup`](../../tree/automation/care-pickup) | 10-25 | 배려가 필요한 승객 픽업 프로필과 도움 인계 | fast-forward (`d1da3f4`) |
+| [`feature/simulator-bridge`](../../tree/feature/simulator-bridge) | 10-27 | 안드로이드 데모 앱과 로컬 차량 시뮬레이터 연결 | fast-forward (`4ee9497`) |
+| [`codex/simulation-app-redesign`](../../tree/codex/simulation-app-redesign) | 10-30 | 실제 Pleos CarService·NaviHelper 연동, 차량 화면 배율 조정, 시뮬레이션-앱 일치 계획 | `integration`을 거쳐 병합 (`2c4f295`) |
 
 ### 병합 기록
 
