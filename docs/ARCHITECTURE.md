@@ -4,38 +4,7 @@
 
 ## 전체 구성
 
-```mermaid
----
-config:
-  flowchart:
-    wrappingWidth: 400
----
-flowchart LR
-  subgraph Pleos["Pleos Connect"]
-    direction TB
-    CS["CarService<br/>기어 · 속도 · UX 제한"]
-    NV["NaviHelper 3.0.5<br/>목적지 · 남은 시간"]
-  end
-  subgraph App["CurbLink Drive 앱"]
-    direction TB
-    PC["PlatformConnections<br/>읽기 전용 어댑터"]
-    VM["MobilityViewModel<br/>단일 상태 StateFlow"]
-    R["판단 규칙<br/>차선 · 하차 · 여정"]
-    UI["MobilityApp<br/>Compose 화면 4개"]
-    ST[("JourneyStore<br/>여정 · 주문 저장")]
-  end
-  SYS["Android 시스템<br/>음성 · 사진 · 공유"]
-  SIM["웹 시뮬레이터<br/>개발용 검증 환경"]
-  CS --> PC
-  NV --> PC
-  PC --> VM
-  VM <--> R
-  VM --> UI
-  UI --> VM
-  VM <--> ST
-  UI <--> SYS
-  R -. "같은 규칙을<br/>JS로 비교" .- SIM
-```
+![전체 구성도](diagrams/architecture-overview.png)
 
 | 파일 | 역할 |
 |---|---|
@@ -50,22 +19,7 @@ flowchart LR
 
 ## 안전 경계
 
-```mermaid
----
-config:
-  flowchart:
-    wrappingWidth: 400
----
-flowchart TD
-  OBS["차량 관측값<br/>기어 · 속도 · UX 제한"] --> V{"관측값이<br/>유효한가?"}
-  V -->|아니오| LOCK["모든 조작 잠금<br/>추천 보류"]
-  V -->|예| P{"P단 정차 ·<br/>UX 제한 없음?"}
-  P -->|아니오| VOICE["음성만 허용<br/>추천 · 명시적 주문"]
-  P -->|예| EDIT["터치 조작 허용<br/>목적지 · 메뉴 · 하차 · 사진"]
-  EDIT --> EXIT{"하차 승인<br/>조건 충족?"}
-  EXIT -->|하나라도 바뀜| REVOKE["승인 자동 폐기<br/>다시 확인"]
-  EXIT -->|모두 충족| OK["사용자 승인<br/>입구 도착 확인"]
-```
+![안전 경계 순서도](diagrams/safety-boundary.png)
 
 - **관측값 유효 조건:** 출처가 있고, 기어가 확인되며, 5초 이내에 갱신된 값
 - **하차 승인 조건:** 도착 · 공간 확인 · 램프 · 직원 · 장애물 없음
