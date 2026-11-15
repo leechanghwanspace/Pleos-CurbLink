@@ -1,6 +1,6 @@
 # CurbLink Drive 구조
 
-0.5.2 기준(2026-11-15) 앱 구조입니다. 10/25 초기 구상(테일게이트 인계·모의 결제 상태 전이)은 [이 문서의 이전 버전](https://github.com/leechanghwanspace/Pleos-CurbLink/blob/0121b5f/docs/ARCHITECTURE.md)에 남아 있으며 현재 앱과 다릅니다.
+0.5.2 기준(2026-11-15) 앱 구조입니다. 10/25 초기 구상(테일게이트 인계·모의 결제 상태 전이)은 [이 문서의 이전 버전](../../../blob/0121b5f/docs/ARCHITECTURE.md)에 남아 있으며 현재 앱과 다릅니다.
 
 ## 전체 구성
 

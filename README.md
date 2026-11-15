@@ -1,10 +1,10 @@
-> **simulation — 웹 주행 시뮬레이션 (개발용 검증 환경)** · 공모전 제출 기준은 [`main`](https://github.com/leechanghwanspace/Pleos-CurbLink/tree/main)입니다.
+> **simulation — 웹 주행 시뮬레이션 (개발용 검증 환경)** · 공모전 제출 기준은 [`main`](../../tree/main)입니다.
 
 # CurbLink Drive — simulation
 
 > [!IMPORTANT]
 > **이 브랜치에서 보여 주는 화면은 CurbLink 앱이 아닙니다.** 앱의 규칙을 실제 도로 없이 시험하려고 팀이 **별도로 만든 웹 시뮬레이션 환경**입니다.
-> - 화면 구성과 디자인은 **실제 앱 UI와 다릅니다.** 실제 앱은 [`apk` 브랜치](https://github.com/leechanghwanspace/Pleos-CurbLink/tree/apk)와 [release APK 시연 영상](submission/video/curblink-apk-demo.mp4)을 봐 주세요.
+> - 화면 구성과 디자인은 **실제 앱 UI와 다릅니다.** 실제 앱은 [`apk` 브랜치](../../tree/apk)와 [release APK 시연 영상](submission/video/curblink-apk-demo.mp4)을 봐 주세요.
 > - 공통점은 **판단 규칙**입니다. 차선 추천, 하차 후보 평가, 식사 시간 맞춤 규칙을 앱과 같은 방식으로 구현해, 앱 결과와 일치하는지 확인합니다.
 > - Pleos 플랫폼이나 차량에서 실행되는 화면이 아니며, 앱과 실시간으로 연결되어 있지도 않습니다.
 
@@ -57,4 +57,4 @@ node simulator/js/lane-engine.test.cjs    # 규칙 단위 시험 (simulator/js/*
 | 10-30 ~ 10-31 | `integration`의 0.5.1·0.5.2 변경을 받아 시뮬레이션 갤러리 갱신 |
 | 11-15 | `main`과 같은 소스로 맞추고 README를 개발용 검증 환경 안내로 정리 |
 
-소스는 `main`과 같고 README만 다릅니다. 전체 브랜치 흐름은 [main README의 브랜치 구성과 개발 이력](https://github.com/leechanghwanspace/Pleos-CurbLink/blob/main/README.md#브랜치-구성과-개발-이력)에 있습니다.
+소스는 `main`과 같고 README만 다릅니다. 전체 브랜치 흐름은 [main README의 브랜치 구성과 개발 이력](../../blob/main/README.md#브랜치-구성과-개발-이력)에 있습니다.
