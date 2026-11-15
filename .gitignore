@@ -28,3 +28,8 @@ Thumbs.db
 work/
 release/*-source.zip
 release/*-source.zip.sha256
+
+# Local-only agent instructions and development notes (kept on this PC, not published)
+AGENTS.md
+.agents/
+.local-notes/

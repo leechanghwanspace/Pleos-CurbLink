@@ -274,4 +274,4 @@ python -m http.server 8080
    - 시뮬레이터의 기본 차량 데이터 유효 시간(`DEFAULT_VEHICLE_TTL_MS`)이 `1000ms`이므로, 외부 브리지 모드에서 Android 브리지가 최소 `500ms~800ms` 주기로 `VEHICLE_STATE`를 송신해 주어야 신선도 만료 차단이 발생하지 않습니다.
 
 ## Codex 통합 결과 (2026-10-27)
-외부 모드에서는 APK가 주문/배려/OTP/정상 개폐를 소유합니다. 평가자 초기 상태 주입, 센서 무효 주입, 실제 소켓 해제, heartbeat와 EVALUATOR_INJECT 호환을 반영했습니다. 정확한 현재 실행법과 검증 범위는 ../docs/DEMO_HANDOVER.md를 기준으로 합니다. 브라우저 렌더링/WS 왕복 확인, 최종 APK 전체 UI 여정은 미완료입니다.
+외부 모드에서는 APK가 주문/배려/OTP/정상 개폐를 소유합니다. 평가자 초기 상태 주입, 센서 무효 주입, 실제 소켓 해제, heartbeat와 EVALUATOR_INJECT 호환을 반영했습니다. 현재 실행법과 검증 범위는 저장소 README를 기준으로 합니다. 브라우저 렌더링/WS 왕복 확인, 최종 APK 전체 UI 여정은 미완료입니다.

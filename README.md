@@ -204,17 +204,17 @@ gitGraph
 
 | 브랜치 | 날짜 | 개발 내용 | `main` 반영 |
 |---|---|---|---|
-| [`automation/collaboration-setup`](https://github.com/leechanghwanspace/Pleos-CurbLink/tree/automation/collaboration-setup) | 10-25 | 여러 코딩 에이전트가 범위를 나눠 작업하는 협업 체계와 최종 검토 절차 | fast-forward (`478faa8`) |
-| [`automation/care-pickup`](https://github.com/leechanghwanspace/Pleos-CurbLink/tree/automation/care-pickup) | 10-25 | 배려가 필요한 승객 픽업 프로필과 도움 인계 | fast-forward (`09dbc62`) |
-| [`feature/simulator-bridge`](https://github.com/leechanghwanspace/Pleos-CurbLink/tree/feature/simulator-bridge) | 10-27 | 안드로이드 데모 앱과 로컬 차량 시뮬레이터 연결 | fast-forward (`3b13ba1`) |
-| [`codex/simulation-app-redesign`](https://github.com/leechanghwanspace/Pleos-CurbLink/tree/codex/simulation-app-redesign) | 10-30 | 실제 Pleos CarService·NaviHelper 연동, 차량 화면 배율 조정, 시뮬레이션-앱 일치 계획 | `integration`을 거쳐 병합 (`d77643c`) |
+| [`automation/collaboration-setup`](https://github.com/leechanghwanspace/Pleos-CurbLink/tree/automation/collaboration-setup) | 10-25 | 작업 범위를 나눠 구현·검토하는 개발 절차와 최종 검토 | fast-forward (`b42e688`) |
+| [`automation/care-pickup`](https://github.com/leechanghwanspace/Pleos-CurbLink/tree/automation/care-pickup) | 10-25 | 배려가 필요한 승객 픽업 프로필과 도움 인계 | fast-forward (`d1da3f4`) |
+| [`feature/simulator-bridge`](https://github.com/leechanghwanspace/Pleos-CurbLink/tree/feature/simulator-bridge) | 10-27 | 안드로이드 데모 앱과 로컬 차량 시뮬레이터 연결 | fast-forward (`4ee9497`) |
+| [`codex/simulation-app-redesign`](https://github.com/leechanghwanspace/Pleos-CurbLink/tree/codex/simulation-app-redesign) | 10-30 | 실제 Pleos CarService·NaviHelper 연동, 차량 화면 배율 조정, 시뮬레이션-앱 일치 계획 | `integration`을 거쳐 병합 (`2c4f295`) |
 
 ### 병합 기록
 
 | 날짜 | `main` 커밋 | 내용 |
 |---|---|---|
-| 10-31 | `d77643c` | `integration`의 0.5.2 프리뷰 병합 (도착 복구 기능, 검증 캡처) |
-| 11-15 | `8d46774` | [PR #1](https://github.com/leechanghwanspace/Pleos-CurbLink/pull/1) — 프로젝트 스킬, release APK, 시연 영상·스크린샷, 제출 정보 |
+| 10-31 | `2c4f295` | `integration`의 0.5.2 프리뷰 병합 (도착 복구 기능, 검증 캡처) |
+| 11-15 | `19bf34f` | [PR #1](https://github.com/leechanghwanspace/Pleos-CurbLink/pull/1) — 프로젝트 스킬, release APK, 시연 영상·스크린샷, 제출 정보 |
 
 ## 개발자용 실행과 빌드
 
@@ -251,4 +251,4 @@ python scripts/record-submission.py --channel chrome
 - `app/src/androidTest`, `app/src/testSupport`: 외부 시험 드라이버·시나리오. 제품 APK에 포함하지 않음
 - `apk/`, `submission/`: 공모전 제출용 APK, 시연 영상, 스크린샷
 - 기획·설계: [기획서](docs/기획서_CurbLink_Drive.md) · [구조와 안전 경계](docs/ARCHITECTURE.md)
-- 개발 기록: [브랜치 안내](docs/BRANCH_GUIDE.md) · [0.5.2 게시 기록](docs/UPDATE_0_5_2.md) · [인수인계](docs/ANTIGRAVITY_HANDOFF.md) · [UX 후속 작업](docs/UX_CONTINUATION_2026_10_30.md) · [프로젝트 스킬](docs/PROJECT_SKILLS.md)
+- 개발 기록: [브랜치 안내](docs/BRANCH_GUIDE.md) · [0.5.2 게시 기록](docs/UPDATE_0_5_2.md) · [0.5.1 게시 기록](docs/UPDATE_0_5_1.md)
