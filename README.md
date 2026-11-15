@@ -121,6 +121,11 @@ Pleos Connect v2.1.0 에뮬레이터에서 실제 APK를 실행해 촬영한 앱
 앱은 **연결 → 상태 → 판단 규칙 → 화면** 네 계층으로 나뉩니다. Pleos 차량 서비스와는 `PlatformConnections` 한 곳에서만 연결하며, 차량을 제어하지 않고 **읽기만** 합니다.
 
 ```mermaid
+---
+config:
+  flowchart:
+    wrappingWidth: 400
+---
 flowchart LR
   subgraph EXT["Pleos Connect"]
     direction TB
