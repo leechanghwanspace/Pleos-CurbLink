@@ -1,10 +1,60 @@
-> **main — 사용자 요청으로 반영한 최신 0.5.2 프리뷰**
+> **integration — 앱·시뮬레이션 공통 개발 및 검증**
 
 # CurbLink Drive 0.5.2
 
 도착 이후의 식사·편안한 하차·현장 인계를 준비하는 네이티브 차량 앱과 별도 웹 주행 시뮬레이터입니다.
 
 [main](https://github.com/leechanghwanspace/Pleos-CurbLink/tree/main) · [simulation](https://github.com/leechanghwanspace/Pleos-CurbLink/tree/simulation) · [integration](https://github.com/leechanghwanspace/Pleos-CurbLink/tree/integration) · [apk](https://github.com/leechanghwanspace/Pleos-CurbLink/tree/apk)
+
+## 공모전 제출 정보
+
+| 항목 | 내용 |
+|---|---|
+| 앱 이름 | **CurbLink Drive** (팀 CurbLink) |
+| 한 줄 소개 | 주행 중 차량 상태를 읽어, 도착 이후의 식사·편안한 하차·현장 인계를 안전하게 미리 준비하는 차량용 앱 |
+| APK | [`apk/CurbLink_CurbLink_release.apk`](apk/CurbLink_CurbLink_release.apk) · [SHA-256](apk/CurbLink_CurbLink_release.apk.sha256) · release 빌드 |
+| 시연 영상 | [release APK 실행 (2분 4초)](submission/video/curblink-apk-demo.mp4) · [웹 주행 시뮬레이션 여섯 여정 (3분 48초)](submission/video/curblink-simulation-demo.mp4) · [스크린샷 모음](submission/README.md) |
+
+### 테스트 환경
+
+| 항목 | 값 |
+|---|---|
+| 에뮬레이터 | **Pleos Connect v2.1.0** (AVD `CurbLink_Pleos_2_1`, Android 14 / API 34, android-automotive, x86_64) |
+| 화면 규격 | 에뮬레이터 디스플레이 **2560×1440, 160dpi** · 앱 창 캡처 원본 1682×1210 |
+| Pleos SDK | `ai.pleos.playground:NaviHelper:3.0.5`, AAOS CarService(기어·속도·UX 제한) |
+| 앱 요구 사항 | minSdk 29 / targetSdk 35, `android.hardware.type.automotive` 필수 |
+| 빌드 | JDK 17, Gradle wrapper 8.9, Android SDK 35 |
+
+### 실행 방법
+
+1. Pleos Connect v2.1.0 에뮬레이터를 부팅합니다.
+2. APK를 설치합니다.
+
+   ```powershell
+   adb install -r apk/CurbLink_CurbLink_release.apk
+   ```
+
+3. 앱 목록에서 **CurbLink Drive**를 실행합니다.
+
+### 필요한 설정
+
+- **위치 권한**: 첫 실행 시 허용합니다. GPS가 없으면 위치 확인과 식사 추천이 보류됩니다.
+- **차량 속도·파워트레인 권한**(`CAR_SPEED`, `CAR_POWERTRAIN`): 기어와 속도를 읽지 못하면 조작이 제한됩니다.
+- **내비게이션 경로 권한**(`pleos.car.permission.NAVI_ROUTE`)과 Pleos 내비게이션 이용 동의: 목적지·남은 시간을 받으려면 필요합니다.
+- 조작은 **P단 정차** 상태에서만 열립니다. 주행 중에는 음성 명령만 받습니다.
+
+### 직접 빌드
+
+```powershell
+. ./scripts/use-home-env.ps1
+./gradlew.bat :app:assembleRelease
+```
+
+저장소 루트에 `keystore.properties`(`storeFile`, `storePassword`, `keyAlias`, `keyPassword`)가 있으면 그 키로 서명합니다. 없으면 로컬 debug 키로 서명한 release 빌드가 만들어집니다. 이 파일과 키는 커밋하지 않습니다.
+
+### 연결 범위
+
+CarService와 NaviHelper는 에뮬레이터의 실제 서비스에 연결합니다. 차선·신호 정보, 매장·주문, 하차 시설, 주변 카메라는 **견본 데이터 또는 시험 입력**이며 실제 제공자와 연결되어 있지 않습니다.
 
 ## 다운로드와 검증
 
