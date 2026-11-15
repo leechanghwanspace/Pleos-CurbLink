@@ -1,8 +1,8 @@
-> **integration — 앱과 시뮬레이션을 합쳐 검증하던 통합 브랜치** · 공모전 제출 기준은 [`main`](https://github.com/leechanghwanspace/Pleos-CurbLink/tree/main)입니다.
+> **integration — 앱과 시뮬레이션을 합쳐 검증하던 통합 브랜치** · 공모전 제출 기준은 [`main`](../../tree/main)입니다.
 
 # CurbLink Drive — integration
 
-주행 중 차량 상태를 읽어, 도착 이후의 식사·편안한 하차·현장 인계를 안전하게 미리 준비하는 Pleos 차량용 앱입니다. 앱 소개, 제출 정보, 화면, 검증 결과는 [main README](https://github.com/leechanghwanspace/Pleos-CurbLink/blob/main/README.md)에 정리되어 있습니다.
+주행 중 차량 상태를 읽어, 도착 이후의 식사·편안한 하차·현장 인계를 안전하게 미리 준비하는 Pleos 차량용 앱입니다. 앱 소개, 제출 정보, 화면, 검증 결과는 [main README](../../blob/main/README.md)에 정리되어 있습니다.
 
 ## 이 브랜치의 역할
 
@@ -46,8 +46,8 @@ python scripts/export-studio-catalog.py --check
 
 | 브랜치 | 역할 |
 |---|---|
-| [`main`](https://github.com/leechanghwanspace/Pleos-CurbLink/tree/main) | 공모전 제출 기준, 최종 작업 |
-| [`simulation`](https://github.com/leechanghwanspace/Pleos-CurbLink/tree/simulation) | 웹 주행 시뮬레이션 안내 |
-| [`apk`](https://github.com/leechanghwanspace/Pleos-CurbLink/tree/apk) | 차량 앱 설치·실행 안내 |
+| [`main`](../../tree/main) | 공모전 제출 기준, 최종 작업 |
+| [`simulation`](../../tree/simulation) | 웹 주행 시뮬레이션 안내 |
+| [`apk`](../../tree/apk) | 차량 앱 설치·실행 안내 |
 
-전체 브랜치 흐름과 보존한 기능 브랜치는 [main README의 브랜치 구성과 개발 이력](https://github.com/leechanghwanspace/Pleos-CurbLink/blob/main/README.md#브랜치-구성과-개발-이력)에 있습니다.
+전체 브랜치 흐름과 보존한 기능 브랜치는 [main README의 브랜치 구성과 개발 이력](../../blob/main/README.md#브랜치-구성과-개발-이력)에 있습니다.
