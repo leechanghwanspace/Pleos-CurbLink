@@ -27,7 +27,7 @@ import xml.etree.ElementTree as ET
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-APK = ROOT / 'apk/CurbLink_CurbLink_release.apk'
+APK = ROOT / 'apk/이창환_CurbLink_release.apk'
 PKG = 'io.curblink.demo'
 VIDEO = ROOT / 'submission/video'
 SHOTS = ROOT / 'submission/screenshots/apk'
@@ -392,7 +392,7 @@ record = {
     'device': {'model': adb('shell', 'getprop', 'ro.product.model'), 'android': adb('shell', 'getprop', 'ro.build.version.release'),
                'display': adb('shell', 'wm', 'size').splitlines()[-1], 'density': adb('shell', 'wm', 'density').splitlines()[-1]},
     'testLocation': {'lon': TEST_LON, 'lat': TEST_LAT, 'note': 'emulator geo fix test coordinate'},
-    'apk': {'file': 'apk/CurbLink_CurbLink_release.apk', 'sha256': hashlib.sha256(APK.read_bytes()).hexdigest()},
+    'apk': {'file': 'apk/이창환_CurbLink_release.apk', 'sha256': hashlib.sha256(APK.read_bytes()).hexdigest()},
     'examplePhotos': {'note': 'example images supplied by the team in submission/example-photos (see its README); '
                               'attached through the app and the system photo picker, not vehicle camera images',
                       'files': [{'slot': s, 'file': f'example-photos/{p.name}', 'sha256': hashlib.sha256(p.read_bytes()).hexdigest()}
