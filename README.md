@@ -4,7 +4,7 @@
 
 주행 중 차량 상태를 읽어, **도착 이후**의 식사·편안한 하차·현장 인계를 안전하게 미리 준비하는 Pleos 차량용 앱입니다.
 
-[주요 기능](#주요-기능) · [제출 정보](#공모전-제출-정보) · [앱 화면](#차량-앱-화면) · [검증 기록](#검증-기록) · [웹 시뮬레이션](#웹-주행-시뮬레이션--개발용-검증-환경) · [브랜치와 개발 이력](#브랜치-구성과-개발-이력) · [오픈소스](#오픈소스-사용-내역)
+[주요 기능](#주요-기능) · [제출 정보](#공모전-제출-정보) · [앱 화면](#차량-앱-화면) · [검증 기록](#검증-기록) · [아키텍처·ERD](#아키텍처와-데이터-모델) · [웹 시뮬레이션](#웹-주행-시뮬레이션--개발용-검증-환경) · [브랜치와 개발 이력](#브랜치-구성과-개발-이력) · [오픈소스](#오픈소스-사용-내역)
 
 ## 주요 기능
 
@@ -113,6 +113,234 @@ Pleos Connect v2.1.0 에뮬레이터에서 실제 APK를 실행해 촬영한 앱
 
 - 프리뷰 APK: [CurbLink-Drive-0.5.2-arrival-preview.apk](release/CurbLink-Drive-0.5.2-arrival-preview.apk) · [SHA-256](release/CurbLink-Drive-0.5.2-arrival-preview.apk.sha256) · [검증 기록](release/VERIFICATION-0.5.2.json) · [변경·남은 검증](docs/UPDATE_0_5_2.md) · [캡처 출처](captures/README.md)
 - 이전 버전(0.2~0.5.1) APK와 [0.5.1 웹 UI 목업](release/CurbLink-Drive-0.5.1-mockup.html)은 이력으로 보존합니다. 목업은 실제 APK나 도로 시뮬레이션의 증거가 아닙니다.
+
+﻿## 아키텍처와 데이터 모델
+
+### 아키텍처 구조도
+
+앱은 **화면(Compose) → 상태(ViewModel) → 판단 규칙 → 플랫폼 연결** 계층으로 나뉩니다. Pleos 차량 서비스와는 `PlatformConnections` 한 곳에서만 연결하며, 차량을 제어하지 않고 **읽기만** 합니다.
+
+```mermaid
+flowchart TB
+  subgraph PLEOS["Pleos Connect v2.1.0"]
+    CS["CarService<br/>기어 · 속도 · UX 제한"]
+    NV["NaviHelper SDK 3.0.5<br/>목적지 · 남은 시간/거리 · 위치 · 도착"]
+  end
+  subgraph ANDROID["Android 시스템 기능"]
+    STT["음성 인식 · TTS"]
+    PICK["시스템 사진 선택기"]
+    SHARE["공유창"]
+    LOC["LocationManager"]
+  end
+  subgraph APP["CurbLink Drive APK"]
+    direction TB
+    MA["MainActivity<br/>권한 요청 · 연결 시작/중지"]
+    UI["MobilityApp (Jetpack Compose)<br/>01 도착 안내 · 02 식사 · 03 하차 · 04 인계"]
+    VM["MobilityViewModel<br/>단일 상태 MobilityState (StateFlow)"]
+    subgraph RULES["판단 규칙 · 테스트 84개"]
+      LR["LaneRecommendation<br/>차선 비용 · 다음 행동 · 이유"]
+      MR["MobilityRules<br/>하차 후보 평가 · 메뉴 추천 · 주문/하차 조건"]
+      JT["JourneyTransitions<br/>새 여정 · 실패 안내 · 사진 첨부 · 승인 폐기"]
+    end
+    PC["PlatformConnections<br/>읽기 전용 어댑터 (1초 주기)"]
+    CAT["MobilityCatalog<br/>견본 목적지 · 메뉴 · 하차 베이"]
+    JS["JourneyStore<br/>여정 · 주문 저장/복원"]
+    SP[("SharedPreferences<br/>journey_v1 · 지원 조건")]
+  end
+  CS --> PC
+  NV --> PC
+  PC -- "observeVehicle · observeTrip<br/>observeLocation" --> VM
+  MA --> UI
+  UI -- "버튼 · 음성 이벤트" --> VM
+  VM -- "상태 구독 (StateFlow)" --> UI
+  VM <--> RULES
+  RULES --> CAT
+  VM <--> JS
+  JS <--> SP
+  UI <--> STT
+  UI <--> PICK
+  UI --> SHARE
+  VM <--> LOC
+```
+
+- **안전 경계:** 차량 관측값이 없거나 5초 넘게 갱신되지 않으면 `MobilityState.canEdit`가 거짓이 되어 모든 터치 조작이 잠깁니다. P단 정차·UX 제한 없음일 때만 열립니다.
+- **견본 데이터:** 차선·신호, 매장·메뉴·주문, 하차 시설은 `MobilityCatalog`와 시험 입력을 씁니다. 실제 제공자와 연결되어 있지 않습니다.
+- **2차 PT 전 전환 계획:** 음성 인식·TTS → SpeechToText·TextToSpeech SDK, CarService → Vehicle SDK, LocationManager → FusedLocation SDK. 연결부(`PlatformConnections`, 음성·위치 호출부)만 바뀌고 화면과 판단 규칙은 그대로입니다.
+- **웹 주행 시뮬레이터**(`simulator/`)는 같은 판단 규칙을 JavaScript로 구현한 개발용 검증 환경입니다. 앱과 실시간으로 연결되지 않습니다.
+
+### 처리 흐름도
+
+차량 상태가 들어와 화면이 바뀌는 흐름과, 주행 중 음성 주문이 확정되는 흐름입니다.
+
+```mermaid
+sequenceDiagram
+  autonumber
+  participant CS as CarService / NaviHelper
+  participant PC as PlatformConnections
+  participant VM as MobilityViewModel
+  participant R as 판단 규칙
+  participant UI as 화면 (Compose)
+  participant D as 운전자
+  participant ST as JourneyStore
+
+  loop 1초마다
+    CS->>PC: 기어 · 속도 · UX 제한 / 목적지 · 남은 시간
+    PC->>VM: observeVehicle() · observeTrip()
+    VM->>R: enforce() — 조건이 바뀌면 하차 승인 · 위치 공유 승인 폐기
+    R-->>VM: 새 MobilityState (canEdit, laneAdvice …)
+    VM-->>UI: StateFlow 갱신
+    UI-->>D: 다음 행동 · 추천 차선 · 한 줄 이유
+  end
+
+  Note over D,UI: 주행 중 (D단) — 터치는 잠기고 음성만 허용
+  D->>UI: "메뉴 추천해줘"
+  UI->>VM: voice(text)
+  VM->>R: voiceIntent() → RECOMMEND, recommendedMenu(남은 시간)
+  R-->>VM: 도착 시간에 맞는 메뉴
+  VM-->>UI: 메뉴 · 금액 · 수령지 안내 (TTS)
+  D->>UI: "주문해줘"
+  UI->>VM: voice(text)
+  VM->>R: voiceIntent() → CONFIRM, confirmOrder(state, voice=true)
+  R-->>VM: DiningOrder (도착 시간 맞춤 예약)
+  VM->>ST: encode() — 여정 · 주문 저장
+  VM-->>UI: 예약 → 접수 → 조리 → 배달 → 도착
+```
+
+### ERD — 데이터 모델
+
+별도 서버나 데이터베이스는 없습니다. 앱 상태는 하나의 `MobilityState`에 모이고, **여정·주문의 일부만** 기기 내부 저장소(SharedPreferences `journey_v1`)에 저장합니다. GPS 좌표, 음성, 사진, 공간 확인과 승인은 저장하지 않으며, 앱을 다시 열면 차량 연결부터 새로 확인합니다.
+
+```mermaid
+erDiagram
+  MOBILITY_STATE ||--|| DEMO_PLACE : "목적지"
+  MOBILITY_STATE }o--o| DINING_MENU : "선택 메뉴"
+  MOBILITY_STATE ||--o| DINING_ORDER : "진행 중 주문"
+  DINING_ORDER }o--|| DINING_MENU : "주문 메뉴"
+  MOBILITY_STATE }o--o| ACCESS_BAY : "선택 하차 지점"
+  MOBILITY_STATE ||--|| ACCESS_PREFERENCES : "필요한 지원"
+  ACCESS_BAY ||--o{ BAY_ASSESSMENT : "조건 평가"
+  ACCESS_PREFERENCES ||--o{ BAY_ASSESSMENT : "평가 기준"
+  MOBILITY_STATE ||--o{ LANE_TRAFFIC : "차선별 관측 1~4"
+  MOBILITY_STATE ||--|| LANE_CONTEXT : "분기점 · 변경 허용"
+  MOBILITY_STATE ||--o| LANE_ADVICE : "추천 결과"
+  VEHICLE_OBSERVATION }o--|| MOBILITY_STATE : "차량 상태 갱신"
+  TRIP_OBSERVATION }o--|| MOBILITY_STATE : "경로 상태 갱신"
+  JOURNEY_RECORD ||--|| MOBILITY_STATE : "저장 · 복원 (일부)"
+
+  MOBILITY_STATE {
+    string tripId PK "여정 ID (UUID)"
+    string destinationId FK
+    enum purpose "픽업 · 잠시 정차 · 주차 · 배리어프리"
+    enum phase "IDLE · DRIVING · ARRIVED"
+    enum gear "P · D · R · N · UNKNOWN"
+    enum source "VEHICLE · TEST · UNAVAILABLE"
+    bool uxRestricted
+    int currentLane
+    int remainingSeconds
+    enum mealStep "위치 → 목적지 → 메뉴 → 확인 → 추적"
+    string selectedMenuId FK
+    string bayId FK
+    set unavailableBayIds "이번 여정 이용 불가 지점"
+    list handoffPhotoUris "전방 · 후방 · 좌측 · 우측 (저장 안 함)"
+    int locationVersion "바뀌면 공유 승인 폐기"
+    bool accessApproved "저장 안 함"
+  }
+  DEMO_PLACE {
+    string id PK "HOME · CULTURE · RIVER"
+    string name
+    int etaSeconds
+    int meters
+  }
+  DINING_MENU {
+    string id PK
+    string name
+    string storeName
+    int price
+    int prepSeconds
+    int deliverySeconds
+  }
+  DINING_ORDER {
+    string id PK "UUID"
+    string menuId FK
+    int confirmedAt
+    int dispatchAt "도착 시간에 맞춘 발송 시점"
+    int lateAtConfirmation
+  }
+  ACCESS_BAY {
+    string id PK "DOOR · A2 · A3"
+    string name
+    int walkMeters
+    double slopePercent
+    double sideClearanceM
+    bool stepFree
+    bool crossing
+    int curb "연석 높이 (2 이하만 통과)"
+    bool staff
+  }
+  ACCESS_PREFERENCES {
+    bool wheelchair
+    bool wideDoor
+    bool gentleSlope
+    bool staffSupport
+  }
+  BAY_ASSESSMENT {
+    string bayId FK
+    list reasons "제외 사유"
+    double cost "낮을수록 추천"
+    bool eligible
+  }
+  LANE_TRAFFIC {
+    int lane PK "1~4"
+    int queue
+    double signalWait
+    double blockProbability
+    bool closed
+    double uncertainty
+  }
+  LANE_CONTEXT {
+    bool simultaneousGreen
+    int exitMeters
+    int exitLane
+    bool laneChangeAllowed
+  }
+  LANE_ADVICE {
+    int lane "추천 차선 (없으면 보류)"
+    string nextAction
+    string reason
+    int nextLane "다음 인접 차선"
+  }
+  VEHICLE_OBSERVATION {
+    enum gear
+    double speedKph
+    long observedAtMs "5초 지나면 무효"
+    enum source
+    bool uxRestricted
+  }
+  TRIP_OBSERVATION {
+    int remainingSeconds
+    int remainingMeters
+    bool arrived
+    bool onMainRoad
+  }
+  JOURNEY_RECORD {
+    string key PK "journey_v1"
+    string trip
+    string destination
+    string orderId
+    string orderMenu
+    string mealStep
+    string bay
+    string unavailableBays
+  }
+```
+
+| 구분 | 엔티티 | 출처 |
+|---|---|---|
+| 앱 상태 | `MOBILITY_STATE` | `MobilityModels.kt` — 화면 전체가 이 상태 하나를 구독 |
+| 견본 카탈로그 | `DEMO_PLACE`, `DINING_MENU`, `ACCESS_BAY` | `MobilityCatalog` (실제 매장·시설 아님) |
+| 계산 결과 | `BAY_ASSESSMENT`, `LANE_ADVICE` | 저장하지 않고 상태가 바뀔 때마다 다시 계산 |
+| 외부 관측 | `VEHICLE_OBSERVATION`, `TRIP_OBSERVATION`, `LANE_TRAFFIC` | Pleos 서비스 또는 시험 입력 |
+| 로컬 저장 | `JOURNEY_RECORD`, `ACCESS_PREFERENCES` | SharedPreferences (`JourneyStore.kt`) |
 
 ## 웹 주행 시뮬레이션 — 개발용 검증 환경
 
