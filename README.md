@@ -13,7 +13,7 @@
 | **01 도착 안내** | 차선별 대기열·신호·변경 횟수를 비교해 **다음 행동 / 남은 거리 / 추천 차선 / 한 줄 이유**를 안내. 정보가 없거나 만료되면 추천을 보류 |
 | **02 도착 맞춤 식사** | 남은 주행 시간과 조리·배달 시간을 맞춰 메뉴를 추천하고 도착 시점에 맞춰 예약. 주행 중에는 **음성으로만** 주문 확정 |
 | **03 편안한 하차** | 단차·경사·옆문 공간·직원 지원을 함께 비교해 하차 지점 추천. 이용할 수 없으면 대안 제시, 맞는 곳이 없으면 조건을 완화하지 않고 "후보 없음" 안내 |
-| **04 현장 인계** | 현재 GPS와 주변 사진(최대 4장)을 묶은 위치 카드를 공유. 위치가 바뀌면 이전 승인을 무효화 |
+| **04 현장 인계** | 전방·후방·좌측·우측 칸을 눌러 방향별 주변 사진을 고르고, 현재 GPS와 묶은 위치 카드를 공유. 위치나 사진이 바뀌면 이전 승인을 무효화 |
 | **안전 원칙** | 차량 기어·속도·UX 제한을 실시간으로 읽어 **P단 정차일 때만** 터치 조작 허용. 차량 정보가 없거나 5초 넘게 갱신되지 않으면 조작을 막음 |
 
 ## 공모전 제출 정보
@@ -23,8 +23,8 @@
 | 앱 이름 | **CurbLink Drive** (팀 CurbLink) |
 | 한 줄 소개 | 주행 중 차량 상태를 읽어, 도착 이후의 식사·편안한 하차·현장 인계를 안전하게 미리 준비하는 차량용 앱 |
 | APK | [`apk/CurbLink_CurbLink_release.apk`](apk/CurbLink_CurbLink_release.apk) · [SHA-256](apk/CurbLink_CurbLink_release.apk.sha256) · release 빌드(현재 로컬 debug 키 서명) |
-| 시연 영상 | [release APK 실행 (2분 4초)](submission/video/curblink-apk-demo.mp4) · [웹 주행 시뮬레이션 여섯 여정 (3분 48초, 앱 UI 아님 · 개발용 검증 환경)](submission/video/curblink-simulation-demo.mp4) |
-| 스크린샷 | [제출용 스크린샷 모음](submission/README.md) (release APK 8장, 웹 시뮬레이션 9장) |
+| 시연 영상 | [release APK 실행 (2분 49초, 2560×1440)](submission/video/curblink-apk-demo.mp4) · [웹 주행 시뮬레이션 여섯 여정 (3분 48초, 앱 UI 아님 · 개발용 검증 환경)](submission/video/curblink-simulation-demo.mp4) |
+| 스크린샷 | [제출용 스크린샷 모음](submission/README.md) (release APK 9장, 웹 시뮬레이션 9장). 현장 인계의 주변 이미지는 [3D로 렌더링한 예시](submission/example-photos/README.md)이며 실제 사진이 아님 |
 
 ### 테스트 환경
 
@@ -104,7 +104,7 @@ Pleos Connect v2.1.0 에뮬레이터에서 실제 APK를 실행해 촬영한 앱
 | 웹 도로 시뮬레이션 | 여섯 여정 완료·원본 PNG 9장·브라우저 오류 없음 |
 | 웹 복구 화면 | A-2 제외→A-3, 후보 없음, 새 승인, 840/480 폭 확인 |
 | 제품 APK 경계·서명·정렬 | 시뮬레이션/시험 코드 제외·v2 서명·16KB 정렬 통과 |
-| **release APK (2026-11-15)** | 경계·v2 서명·16KB 정렬 통과, debuggable 아님 · 에뮬레이터 실제 차량 연결(P단)에서 16단계 실행 녹화 · [기록](submission/video/apk-verification.json) |
+| **release APK (2026-11-15)** | JVM 규칙 시험 84개 통과(방향별 사진 첨부 4개 추가), release lint 오류 0, 경계·v2 서명·16KB 정렬 통과, debuggable 아님 · 에뮬레이터 실제 차량 연결(P단)에서 24단계 실행 녹화 · [기록](submission/video/apk-verification.json) |
 
 **아직 확인하지 않은 것:** 실제 STT/TTS, 사진 선택기와 공유 대상 전달, TalkBack·로터리 입력, 공식 폼팩터, 실차. 실차 인증이나 마켓 심사를 마친 버전이 아닙니다.
 
