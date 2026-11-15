@@ -4,7 +4,7 @@
 
 주행 중 차량 상태를 읽어, **도착 이후**의 식사·편안한 하차·현장 인계를 안전하게 미리 준비하는 Pleos 차량용 앱입니다.
 
-[주요 기능](#주요-기능) · [제출 정보](#공모전-제출-정보) · [앱 화면](#차량-앱-화면) · [검증 기록](#검증-기록) · [웹 시뮬레이션](#웹-주행-시뮬레이션--개발용-검증-환경) · [브랜치와 개발 이력](#브랜치-구성과-개발-이력)
+[주요 기능](#주요-기능) · [제출 정보](#공모전-제출-정보) · [앱 화면](#차량-앱-화면) · [검증 기록](#검증-기록) · [웹 시뮬레이션](#웹-주행-시뮬레이션--개발용-검증-환경) · [브랜치와 개발 이력](#브랜치-구성과-개발-이력) · [오픈소스](#오픈소스-사용-내역)
 
 ## 주요 기능
 
@@ -71,6 +71,8 @@
 | CarService 기어·속도·UX 제한, NaviHelper 목적지·남은 시간·거리·현재 위치·도착 이벤트 | 차선·신호·정체 정보, 매장·메뉴·주문·결제, 하차 시설 정보, 주변 카메라(SVM), 도어·리프트 |
 
 이번 검증 실행에서는 견본 목적지와 일치하는 활성 경로가 없어 `routeReady=false`였습니다. 실제 경로·ETA 수신까지 확인한 것으로 보지 않습니다.
+
+**2차 PT 전까지의 계획:** 공모전 개발 범위 안내에 맞춰 음성 인식·안내는 SpeechToText·TextToSpeech SDK로, 기어·속도·주행 제한은 Vehicle SDK로, 위치는 FusedLocation SDK로 전환합니다. 자세한 내용은 [기획서 5-4](docs/기획서_CurbLink_Drive.md)에 있습니다.
 
 ## 차량 앱 화면
 
@@ -215,6 +217,42 @@ gitGraph
 |---|---|---|
 | 10-31 | `2c4f295` | `integration`의 0.5.2 프리뷰 병합 (도착 복구 기능, 검증 캡처) |
 | 11-15 | `19bf34f` | `integration` 병합 (PR #1) — release APK, 방향별 사진 첨부, 시연 영상·스크린샷, 제출 정보 |
+
+## 오픈소스 사용 내역
+
+이용약관 제7조에 따라 사용한 오픈소스와 라이선스를 밝힙니다. 각 라이선스 원문은 해당 프로젝트에서 확인할 수 있습니다.
+
+**차량 앱 (APK에 포함)**
+
+| 구성 요소 | 버전 | 라이선스 |
+|---|---|---|
+| Kotlin 표준 라이브러리 | 2.0.21 | Apache 2.0 |
+| AndroidX Compose (BOM), Material 3, UI Tooling | 2024.12.01 | Apache 2.0 |
+| AndroidX Activity Compose | 1.9.3 | Apache 2.0 |
+| AndroidX Lifecycle ViewModel Compose | 2.8.7 | Apache 2.0 |
+| JUnit (시험 전용, APK 미포함) | 4.13.2 | EPL 1.0 |
+
+플랫폼 SDK: `ai.pleos.playground:NaviHelper:3.0.5`는 오픈소스가 아니라 Pleos Playground가 제공하는 SDK이며, Pleos Playground 이용 조건에 따라 사용합니다. 빌드 도구로 Android Gradle Plugin 8.7.3과 Gradle 8.9(Apache 2.0)를 사용합니다.
+
+**웹 주행 시뮬레이터 (개발용 검증 환경, CDN에서 불러옴)**
+
+| 구성 요소 | 버전 | 라이선스 |
+|---|---|---|
+| React, ReactDOM | 18.3.1 | MIT |
+| Babel Standalone | 7.26.2 | MIT |
+| Tailwind CSS (Play CDN) | 3.4.15 | MIT |
+
+**제출 자료 제작·검증 스크립트 (앱에 포함되지 않음)**
+
+| 구성 요소 | 용도 | 라이선스 |
+|---|---|---|
+| three.js 0.160.0 | 현장 인계 예시 이미지 3D 렌더링 (`scripts/example-photos/`) | MIT |
+| Playwright for Python | 웹 시뮬레이션 자동 검증·녹화, 예시 이미지 렌더링 | Apache 2.0 |
+| Pillow | 캡처 이미지 처리 | MIT-CMU (HPND) |
+| websockets | 초기 구상의 로컬 시뮬레이터 브리지 (`bridge/`, 현재 앱 미사용) | BSD 3-Clause |
+| FFmpeg (외부 실행 도구) | 시연 영상 인코딩 | LGPL/GPL (저장소에 포함하지 않음) |
+
+현장 인계 예시 이미지(`submission/example-photos/`)는 위 three.js로 직접 렌더링한 가상 장면입니다.
 
 ## 개발자용 실행과 빌드
 
