@@ -20,9 +20,9 @@
 
 | 항목 | 내용 |
 |---|---|
-| 앱 이름 | **CurbLink Drive** (팀 CurbLink) |
+| 앱 이름 | **CurbLink Drive** (개인 참가 · 이창환, 일반 부문) |
 | 한 줄 소개 | 주행 중 차량 상태를 읽어, 도착 이후의 식사·편안한 하차·현장 인계를 안전하게 미리 준비하는 차량용 앱 |
-| APK | [`apk/CurbLink_CurbLink_release.apk`](apk/CurbLink_CurbLink_release.apk) · [SHA-256](apk/CurbLink_CurbLink_release.apk.sha256) · release 빌드(현재 로컬 debug 키 서명) |
+| APK | [`apk/이창환_CurbLink_release.apk`](apk/이창환_CurbLink_release.apk) · [SHA-256](apk/이창환_CurbLink_release.apk.sha256) · release 빌드(현재 로컬 debug 키 서명) |
 | 시연 영상 | [release APK 실행 (2분 49초, 2560×1440)](submission/video/curblink-apk-demo.mp4) · [웹 주행 시뮬레이션 여섯 여정 (3분 48초, 앱 UI 아님 · 개발용 검증 환경)](submission/video/curblink-simulation-demo.mp4) |
 | 스크린샷 | [제출용 스크린샷 모음](submission/README.md) (release APK 9장, 웹 시뮬레이션 9장). 현장 인계의 주변 이미지는 [3D로 렌더링한 예시](submission/example-photos/README.md)이며 실제 사진이 아님 |
 
@@ -42,7 +42,7 @@
 2. APK를 설치합니다.
 
    ```powershell
-   adb install -r apk/CurbLink_CurbLink_release.apk
+   adb install -r apk/이창환_CurbLink_release.apk
    ```
 
 3. 앱 목록에서 **CurbLink Drive**를 실행합니다.
