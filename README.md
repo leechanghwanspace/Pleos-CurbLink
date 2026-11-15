@@ -9,8 +9,8 @@
 | 파일 | 설명 |
 |---|---|
 | [`apk/CurbLink_CurbLink_release.apk`](apk/CurbLink_CurbLink_release.apk) · [SHA-256](apk/CurbLink_CurbLink_release.apk.sha256) | **제출용 release 빌드** (현재 로컬 debug 키 서명). 시뮬레이션·시험 코드 미포함, v2 서명, 16KB 정렬 통과 |
-| [release APK 시연 영상](submission/video/curblink-apk-demo.mp4) (2분 4초) | Pleos Connect v2.1.0 에뮬레이터, 실제 차량 연결(P단)에서 식사 예약 → 하차 대안 → 안전 확인 → 위치 카드 |
-| [스크린샷](submission/README.md#release-apk-화면-pleos-connect-v210-25601440) | release APK 화면 8장 |
+| [release APK 시연 영상](submission/video/curblink-apk-demo.mp4) (2분 49초, 2560×1440) | Pleos Connect v2.1.0 에뮬레이터, 실제 차량 연결(P단)에서 식사 예약 → 하차 대안 → 안전 확인 → 방향별 주변 이미지 첨부 → 위치 카드 |
+| [스크린샷](submission/README.md#release-apk-화면-pleos-connect-v210-25601440) | release APK 화면 9장. 현장 인계의 주변 이미지는 [3D로 렌더링한 예시](submission/example-photos/README.md)이며 실제 사진이 아님 |
 
 ## 테스트 환경
 
@@ -41,9 +41,9 @@ adb install -r apk/CurbLink_CurbLink_release.apk
 |---|---|
 | ![메뉴 추천](submission/screenshots/apk/02-dining-recommended.png) | ![하차 대안](submission/screenshots/apk/06-access-a2-unavailable-alternative.png) |
 
-| 안전 확인 · 입구 도착 | 위치 카드 확인 |
+| 안전 확인 · 입구 도착 | 방향별 주변 이미지 첨부 (3D 렌더링 예시) |
 |---|---|
-| ![입구 도착](submission/screenshots/apk/07-access-entrance-confirmed.png) | ![위치 카드](submission/screenshots/apk/08-handoff-location-card.png) |
+| ![입구 도착](submission/screenshots/apk/07-access-entrance-confirmed.png) | ![주변 이미지 첨부](submission/screenshots/apk/08-handoff-photos-attached.png) |
 
 CarService·NaviHelper는 에뮬레이터의 실제 서비스에 연결합니다. 차선·신호, 매장·주문, 하차 시설, 주변 카메라는 견본 데이터 또는 시험 입력입니다.
 
