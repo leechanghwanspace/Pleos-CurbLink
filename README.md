@@ -1,4 +1,4 @@
-> **integration — 앱·시뮬레이션 공통 개발 및 검증**
+> **main — 공모전 제출 기준 최신 0.5.2 (release APK · 시연 영상 포함)**
 
 # CurbLink Drive 0.5.2
 
@@ -13,7 +13,7 @@
 | 앱 이름 | **CurbLink Drive** (팀 CurbLink) |
 | 한 줄 소개 | 주행 중 차량 상태를 읽어, 도착 이후의 식사·편안한 하차·현장 인계를 안전하게 미리 준비하는 차량용 앱 |
 | APK | [`apk/CurbLink_CurbLink_release.apk`](apk/CurbLink_CurbLink_release.apk) · [SHA-256](apk/CurbLink_CurbLink_release.apk.sha256) · release 빌드 |
-| 시연 영상 | [release APK 실행 (2분 4초)](submission/video/curblink-apk-demo.mp4) · [웹 주행 시뮬레이션 여섯 여정 (3분 48초)](submission/video/curblink-simulation-demo.mp4) · [스크린샷 모음](submission/README.md) |
+| 시연 영상 | [release APK 실행 (2분 4초)](submission/video/curblink-apk-demo.mp4) · [웹 주행 시뮬레이션 여섯 여정 (3분 48초, 앱 UI 아님 · 개발용 검증 환경)](submission/video/curblink-simulation-demo.mp4) · [스크린샷 모음](submission/README.md) |
 
 ### 테스트 환경
 
@@ -99,7 +99,14 @@ Pleos Connect 2.1.0에서 실제 APK를 실행하고 **Android PixelCopy 앱 창
 
 CarService 기어·UX 제한 및 NaviHelper 서비스 IPC를 연결했습니다. 이번 실행에서는 선택한 견본 목적지에 일치하는 활성 경로가 없어 `routeReady=false`였습니다. 실제 목적지 경로·ETA 수신 완료로 해석하지 않습니다. 차선/신호/정체·실제 POI 경로 생성·주문/결제·시설·SVM·도어/리프트 제공자는 미연결입니다.
 
-## 최신 웹 시뮬레이션 — 여섯 여정 검증
+## 최신 웹 시뮬레이션 — 여섯 여정 검증 (개발용 검증 환경)
+
+> [!IMPORTANT]
+> **이 섹션의 화면은 CurbLink 앱이 아닙니다.** 앱의 규칙을 실제 도로 없이 시험하려고 팀이 **별도로 만든 웹 시뮬레이션 환경**입니다.
+> - 가상 도로·차량 내부·주변 시야를 웹 브라우저에 그려, 주행 상황(차선 변경, 후진 주차, 정차 등)을 재현합니다.
+> - 화면 구성과 디자인은 **실제 앱 UI와 다릅니다.** 실제 앱 화면은 위의 [최신 차량 앱 화면](#최신-차량-앱-화면--052)과 [release APK 시연 영상](submission/video/curblink-apk-demo.mp4)을 봐 주세요.
+> - 공통점은 **판단 규칙**입니다. 차선 추천, 하차 후보 평가, 식사 시간 맞춤 같은 규칙을 앱과 같은 방식으로 구현해, 앱 결과와 일치하는지 확인하는 데 씁니다.
+> - Pleos 플랫폼이나 차량에서 실행되는 화면이 아니며, 앱과 실시간으로 연결되어 있지도 않습니다.
 
 `simulator/`의 **가상 도로·차량 내부·합성 주변 시야**입니다. 1920×1200 뷰포트·배율 1에서 요소 영역의 원본 PNG를 수집했습니다. 소프트웨어 렌더링 검증으로 물리 GPU·실차 성능 검증은 아닙니다. [여정 결과·원본 크기·해시](captures/web/0.5.2/verification.json)
 
