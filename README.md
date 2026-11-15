@@ -24,6 +24,7 @@
 | 한 줄 소개 | 주행 중 차량 상태를 읽어, 도착 이후의 식사·편안한 하차·현장 인계를 안전하게 미리 준비하는 차량용 앱 |
 | APK | [`apk/이창환_CurbLink_release.apk`](apk/이창환_CurbLink_release.apk) · [SHA-256](apk/이창환_CurbLink_release.apk.sha256) · release 빌드(현재 로컬 debug 키 서명) |
 | 시연 영상 | [release APK 실행 (2분 49초, 2560×1440)](submission/video/curblink-apk-demo.mp4) · [웹 주행 시뮬레이션 여섯 여정 (3분 48초, 앱 UI 아님 · 개발용 검증 환경)](submission/video/curblink-simulation-demo.mp4) |
+| 기획서 | [docs/기획서_CurbLink_Drive.md](docs/기획서_CurbLink_Drive.md) (접수 양식 원문) |
 | 스크린샷 | [제출용 스크린샷 모음](submission/README.md) (release APK 9장, 웹 시뮬레이션 9장). 현장 인계의 주변 이미지는 [3D로 렌더링한 예시](submission/example-photos/README.md)이며 실제 사진이 아님 |
 
 ### 테스트 환경
@@ -249,4 +250,5 @@ python scripts/record-submission.py --channel chrome
 - `simulator/`: 별도 웹 도로·식사·하차·합성 주변 시야 시뮬레이션
 - `app/src/androidTest`, `app/src/testSupport`: 외부 시험 드라이버·시나리오. 제품 APK에 포함하지 않음
 - `apk/`, `submission/`: 공모전 제출용 APK, 시연 영상, 스크린샷
+- 기획·설계: [기획서](docs/기획서_CurbLink_Drive.md) · [구조와 안전 경계](docs/ARCHITECTURE.md)
 - 개발 기록: [브랜치 안내](docs/BRANCH_GUIDE.md) · [0.5.2 게시 기록](docs/UPDATE_0_5_2.md) · [인수인계](docs/ANTIGRAVITY_HANDOFF.md) · [UX 후속 작업](docs/UX_CONTINUATION_2026_10_30.md) · [프로젝트 스킬](docs/PROJECT_SKILLS.md)
