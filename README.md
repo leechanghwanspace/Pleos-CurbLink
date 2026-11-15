@@ -106,7 +106,7 @@ Pleos Connect v2.1.0 에뮬레이터에서 실제 APK를 실행해 촬영한 앱
 | 제품 APK 경계·서명·정렬 | 시뮬레이션/시험 코드 제외·v2 서명·16KB 정렬 통과 |
 | **release APK (2026-11-15)** | JVM 규칙 시험 84개 통과(방향별 사진 첨부 4개 추가), release lint 오류 0, 경계·v2 서명·16KB 정렬 통과, debuggable 아님 · 에뮬레이터 실제 차량 연결(P단)에서 24단계 실행 녹화 · [기록](submission/video/apk-verification.json) |
 
-**아직 확인하지 않은 것:** 실제 STT/TTS, 사진 선택기와 공유 대상 전달, TalkBack·로터리 입력, 공식 폼팩터, 실차. 실차 인증이나 마켓 심사를 마친 버전이 아닙니다.
+**아직 확인하지 않은 것:** 실제 STT/TTS, 공유 대상 앱으로의 실제 전달, TalkBack·로터리 입력, 공식 폼팩터, 실차. 시스템 사진 선택기로 방향별 사진을 첨부하는 흐름은 에뮬레이터에서 확인했습니다. 실차 인증이나 마켓 심사를 마친 버전이 아닙니다.
 
 - 프리뷰 APK: [CurbLink-Drive-0.5.2-arrival-preview.apk](release/CurbLink-Drive-0.5.2-arrival-preview.apk) · [SHA-256](release/CurbLink-Drive-0.5.2-arrival-preview.apk.sha256) · [검증 기록](release/VERIFICATION-0.5.2.json) · [변경·남은 검증](docs/UPDATE_0_5_2.md) · [캡처 출처](captures/README.md)
 - 이전 버전(0.2~0.5.1) APK와 [0.5.1 웹 UI 목업](release/CurbLink-Drive-0.5.1-mockup.html)은 이력으로 보존합니다. 목업은 실제 APK나 도로 시뮬레이션의 증거가 아닙니다.
