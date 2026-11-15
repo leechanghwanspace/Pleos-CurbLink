@@ -1,8 +1,17 @@
+import java.util.Properties
+
 plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.android")
     id("org.jetbrains.kotlin.plugin.compose")
 }
+
+// Release signing comes from an uncommitted keystore.properties at the repository root
+// (storeFile, storePassword, keyAlias, keyPassword). Without it, the release build is
+// signed with the local debug key so it still installs for review; it is not an official signature.
+val releaseKeystore = rootProject.file("keystore.properties")
+val releaseSigning = Properties().apply { if (releaseKeystore.isFile) releaseKeystore.inputStream().use(::load) }
+
 android {
     namespace = "io.curblink.demo"
     compileSdk = 35
@@ -15,6 +24,21 @@ android {
         versionCode = 8
         versionName = "0.5.2-arrival-preview"
         testInstrumentationRunner = "io.curblink.demo.VehicleAppInstrumentation"
+    }
+    signingConfigs {
+        if (releaseKeystore.isFile) create("release") {
+            storeFile = rootProject.file(releaseSigning.getProperty("storeFile"))
+            storePassword = releaseSigning.getProperty("storePassword")
+            keyAlias = releaseSigning.getProperty("keyAlias")
+            keyPassword = releaseSigning.getProperty("keyPassword")
+        }
+    }
+    buildTypes {
+        getByName("release") {
+            // Car/NaviHelper APIs are resolved from the platform classpath; keep shrinking off.
+            isMinifyEnabled = false
+            signingConfig = signingConfigs.findByName("release") ?: signingConfigs.getByName("debug")
+        }
     }
     buildFeatures { compose = true }
     sourceSets {

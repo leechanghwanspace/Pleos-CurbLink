@@ -12,6 +12,7 @@ local.properties
 # Keystores & sensitive files
 *.jks
 *.keystore
+keystore.properties
 
 # Temporary and OS files
 *.hprof
