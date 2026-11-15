@@ -6,19 +6,21 @@
 
 ```mermaid
 flowchart LR
-  subgraph Pleos["Pleos Connect (실제 서비스)"]
-    CS["CarService<br/>기어·속도·UX 제한"]
-    NV["NaviHelper 3.0.5<br/>목적지·남은 시간·위치·도착"]
+  subgraph Pleos["Pleos Connect"]
+    direction TB
+    CS["CarService<br/>기어 · 속도 · UX 제한"]
+    NV["NaviHelper 3.0.5<br/>목적지 · 남은 시간"]
   end
-  subgraph App["CurbLink Drive APK"]
+  subgraph App["CurbLink Drive 앱"]
+    direction TB
     PC["PlatformConnections<br/>읽기 전용 어댑터"]
-    VM["MobilityViewModel<br/>MobilityState · StateFlow"]
-    R["규칙<br/>LaneRecommendation · MobilityRules<br/>JourneyTransitions"]
-    UI["MobilityApp (Compose)<br/>01 도착 안내 · 02 식사 · 03 하차 · 04 인계"]
-    ST["JourneyStore<br/>주문·여정 저장"]
+    VM["MobilityViewModel<br/>단일 상태 StateFlow"]
+    R["판단 규칙<br/>차선 · 하차 · 여정"]
+    UI["MobilityApp<br/>Compose 화면 4개"]
+    ST[("JourneyStore<br/>여정 · 주문 저장")]
   end
-  SYS["Android 시스템<br/>음성 인식·TTS · 사진 선택기 · 공유"]
-  SIM["웹 주행 시뮬레이터 simulator/<br/>(개발용 검증 환경, 앱과 실시간 연결 없음)"]
+  SYS["Android 시스템<br/>음성 · 사진 · 공유"]
+  SIM["웹 시뮬레이터<br/>개발용 검증 환경"]
   CS --> PC
   NV --> PC
   PC --> VM
@@ -27,7 +29,7 @@ flowchart LR
   UI --> VM
   VM <--> ST
   UI <--> SYS
-  R -. 같은 판단 규칙을 JS로 구현해 결과 비교 .- SIM
+  R -. "같은 규칙을<br/>JS로 비교" .- SIM
 ```
 
 | 파일 | 역할 |
@@ -45,15 +47,18 @@ flowchart LR
 
 ```mermaid
 flowchart TD
-  OBS["차량 관측값<br/>기어·속도·UX 제한"] --> V{"유효한가?<br/>출처 있음 · 기어 확인 · 5초 이내"}
+  OBS["차량 관측값<br/>기어 · 속도 · UX 제한"] --> V{"관측값이<br/>유효한가?"}
   V -->|아니오| LOCK["모든 조작 잠금<br/>추천 보류"]
-  V -->|예| P{"P단 정차 · UX 제한 없음?"}
-  P -->|아니오| VOICE["음성 경로만 허용<br/>메뉴 추천·명시적 주문 확정"]
-  P -->|예| EDIT["터치 조작 허용<br/>목적지·메뉴·하차 지점·사진"]
-  EDIT --> EXIT{"하차 승인 조건<br/>도착 · 공간 확인 · 램프 · 직원 · 장애물 없음"}
-  EXIT -->|하나라도 바뀜| REVOKE["승인 자동 폐기 · 재확인"]
-  EXIT -->|모두 충족| OK["사용자 승인 → 입구 도착 확인"]
+  V -->|예| P{"P단 정차 ·<br/>UX 제한 없음?"}
+  P -->|아니오| VOICE["음성만 허용<br/>추천 · 명시적 주문"]
+  P -->|예| EDIT["터치 조작 허용<br/>목적지 · 메뉴 · 하차 · 사진"]
+  EDIT --> EXIT{"하차 승인<br/>조건 충족?"}
+  EXIT -->|하나라도 바뀜| REVOKE["승인 자동 폐기<br/>다시 확인"]
+  EXIT -->|모두 충족| OK["사용자 승인<br/>입구 도착 확인"]
 ```
+
+- **관측값 유효 조건:** 출처가 있고, 기어가 확인되며, 5초 이내에 갱신된 값
+- **하차 승인 조건:** 도착 · 공간 확인 · 램프 · 직원 · 장애물 없음
 
 1. 차량 정보가 없거나 오래되면 조작을 막습니다. 시험 데이터로 대신 채우지 않습니다.
 2. 화면의 "동승자 조작" 선택은 권한이 아닙니다. 운전석 화면의 주행 중 제한은 그대로입니다.
