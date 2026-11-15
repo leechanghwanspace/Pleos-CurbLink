@@ -1,0 +1,33 @@
+---
+config:
+  flowchart:
+    wrappingWidth: 400
+---
+flowchart LR
+  subgraph EXT["Pleos Connect"]
+    direction TB
+    CS["CarService<br/>기어 · 속도 · UX 제한"]
+    NV["NaviHelper 3.0.5<br/>목적지 · 남은 시간"]
+  end
+  subgraph APP["CurbLink Drive 앱"]
+    direction TB
+    PC["PlatformConnections<br/>읽기 전용 · 1초 주기"]
+    VM["MobilityViewModel<br/>단일 상태 StateFlow"]
+    RU["판단 규칙<br/>차선 · 하차 · 여정"]
+    UI["MobilityApp<br/>Compose 화면 4개"]
+    JS[("JourneyStore<br/>여정 · 주문 저장")]
+  end
+  subgraph SYS["Android 시스템"]
+    direction TB
+    VO["음성 인식 · TTS"]
+    PH["사진 선택기 · 공유"]
+  end
+  CS --> PC
+  NV --> PC
+  PC --> VM
+  VM <--> RU
+  VM --> UI
+  UI -- "버튼 · 음성" --> VM
+  VM <--> JS
+  UI <--> VO
+  UI <--> PH

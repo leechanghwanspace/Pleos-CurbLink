@@ -1,0 +1,39 @@
+gitGraph
+  commit id: "초기 구조"
+  commit id: "안전 인터록·도메인"
+  commit id: "AAOS Compose UI"
+  branch "automation/collaboration-setup"
+  commit id: "협업 체계"
+  checkout main
+  merge "automation/collaboration-setup"
+  branch "automation/care-pickup"
+  commit id: "배려 픽업·도움 인계"
+  checkout main
+  merge "automation/care-pickup"
+  branch "feature/simulator-bridge"
+  commit id: "시뮬레이터 브리지"
+  checkout main
+  merge "feature/simulator-bridge"
+  commit id: "0.2 네이티브 재구성"
+  branch "codex/simulation-app-redesign"
+  commit id: "Pleos SDK 연동"
+  branch integration
+  commit id: "0.5 브랜치 체계"
+  branch simulation
+  commit id: "시뮬레이션 안내"
+  checkout integration
+  branch apk
+  commit id: "APK 설치 안내"
+  checkout integration
+  commit id: "0.5.1 수정"
+  commit id: "0.5.2 도착 복구"
+  checkout simulation
+  merge integration
+  checkout apk
+  merge integration
+  checkout main
+  merge integration id: "0.5.2 프리뷰 병합"
+  checkout integration
+  commit id: "스킬·제출 자료"
+  checkout main
+  merge integration id: "PR #1"

@@ -1,0 +1,33 @@
+erDiagram
+  VEHICLE_OBSERVATION }o--|| MOBILITY_STATE : "차량 상태"
+  TRIP_OBSERVATION }o--|| MOBILITY_STATE : "경로 상태"
+  MOBILITY_STATE ||--o{ LANE_TRAFFIC : "차선 1~4"
+  MOBILITY_STATE ||--o| LANE_ADVICE : "추천 결과"
+
+  VEHICLE_OBSERVATION {
+    enum gear
+    double speedKph
+    long observedAtMs
+    bool uxRestricted
+  }
+  TRIP_OBSERVATION {
+    int remainingSeconds
+    int remainingMeters
+    bool arrived
+  }
+  MOBILITY_STATE {
+    string tripId PK
+    int currentLane
+    int remainingSeconds
+  }
+  LANE_TRAFFIC {
+    int lane PK
+    int queue
+    double signalWait
+    bool closed
+  }
+  LANE_ADVICE {
+    int lane
+    string nextAction
+    string reason
+  }

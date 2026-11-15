@@ -1,0 +1,50 @@
+erDiagram
+  MOBILITY_STATE ||--|| DEMO_PLACE : "목적지"
+  MOBILITY_STATE ||--o| DINING_ORDER : "진행 주문"
+  DINING_ORDER }o--|| DINING_MENU : "메뉴"
+  MOBILITY_STATE }o--o| ACCESS_BAY : "하차 지점"
+  ACCESS_BAY ||--o{ BAY_ASSESSMENT : "평가"
+  MOBILITY_STATE ||--|| JOURNEY_RECORD : "저장 · 복원"
+
+  MOBILITY_STATE {
+    string tripId PK
+    string destinationId FK
+    enum purpose
+    enum phase
+    enum mealStep
+    string bayId FK
+    bool canEdit
+  }
+  DEMO_PLACE {
+    string id PK
+    string name
+    int etaSeconds
+  }
+  DINING_ORDER {
+    string id PK
+    string menuId FK
+    int dispatchAt
+  }
+  DINING_MENU {
+    string id PK
+    string name
+    int price
+    int prepSeconds
+  }
+  ACCESS_BAY {
+    string id PK
+    int walkMeters
+    double slopePercent
+    bool stepFree
+  }
+  BAY_ASSESSMENT {
+    string bayId FK
+    double cost
+    bool eligible
+  }
+  JOURNEY_RECORD {
+    string key PK
+    string orderId
+    string mealStep
+    string bay
+  }
